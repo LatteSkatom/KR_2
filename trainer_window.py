@@ -1,5 +1,5 @@
 # trainer_window.py
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHBoxLayout, QMessageBox, QComboBox, QTextEdit, QDateEdit, QTimeEdit, QFormLayout, QLineEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHBoxLayout, QMessageBox, QComboBox, QTextEdit, QDateEdit, QTimeEdit, QFormLayout, QLineEdit, QTabWidget
 from PyQt6.QtCore import QDate
 import MySQLdb.cursors
 from db import get_trainer_schedule, get_enrolled_for_class, mark_attendance, add_training_journal, get_training_journal_for_client, add_recommendation, block_trainer_time, get_clients
@@ -14,11 +14,15 @@ class TrainerWindow(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(QLabel(f"<h2>Панель тренера — {user['fio']}</h2>"))
 
+        tabs = QTabWidget()
+
         # расписание
-        layout.addWidget(QLabel("<b>Моё расписание</b>"))
+        schedule_tab = QWidget()
+        schedule_layout = QVBoxLayout()
+        schedule_layout.addWidget(QLabel("<b>Моё расписание</b>"))
         self.schedule_table = QTableWidget(0,6)
         self.schedule_table.setHorizontalHeaderLabels(['ID','Занятие','Дата','Начало','Конец','Зал'])
-        layout.addWidget(self.schedule_table)
+        schedule_layout.addWidget(self.schedule_table)
 
         btns = QHBoxLayout()
         self.btn_load_schedule = QPushButton("Загрузить расписание")
@@ -29,25 +33,27 @@ class TrainerWindow(QWidget):
         self.btn_view_enrolled.clicked.connect(self.show_enrolled_for_selected)
         btns.addWidget(self.btn_view_enrolled)
 
-        layout.addLayout(btns)
+        schedule_layout.addLayout(btns)
 
-        # enrolled table
-        layout.addWidget(QLabel("<b>Записавшиеся на выделенное занятие</b>"))
+        schedule_layout.addWidget(QLabel("<b>Записавшиеся на выделенное занятие</b>"))
         self.enrolled_table = QTableWidget(0,4)
         self.enrolled_table.setHorizontalHeaderLabels(['ID','Клиент ID','ФИО','Присутствие'])
-        layout.addWidget(self.enrolled_table)
+        schedule_layout.addWidget(self.enrolled_table)
 
         att_buttons = QHBoxLayout()
         self.btn_mark_present = QPushButton("Отметить присутствие")
         self.btn_mark_present.clicked.connect(self.mark_selected_present)
         att_buttons.addWidget(self.btn_mark_present)
-        layout.addLayout(att_buttons)
+        schedule_layout.addLayout(att_buttons)
+        schedule_tab.setLayout(schedule_layout)
+        tabs.addTab(schedule_tab, "Расписание")
 
         # журнал тренера / рекомендации
-        layout.addWidget(QLabel("<b>Журнал персональных тренировок / рекомендации</b>"))
+        journal_tab = QWidget()
+        journal_layout = QVBoxLayout()
+        journal_layout.addWidget(QLabel("<b>Журнал персональных тренировок / рекомендации</b>"))
         j_layout = QHBoxLayout()
         self.client_combo = QComboBox()
-        # загрузим клиентов из базы (в простом виде)
         rows = get_clients(1000)
         for r in rows:
             self.client_combo.addItem(f"{r['fio']} (id:{r['userID']})", r['userID'])
@@ -59,9 +65,8 @@ class TrainerWindow(QWidget):
         self.btn_add_journal = QPushButton("Добавить в журнал")
         self.btn_add_journal.clicked.connect(self.add_journal_entry)
         j_layout.addWidget(self.btn_add_journal)
-        layout.addLayout(j_layout)
+        journal_layout.addLayout(j_layout)
 
-        # рекомендации
         rec_layout = QHBoxLayout()
         self.rec_client_combo = QComboBox()
         for r in rows:
@@ -72,10 +77,14 @@ class TrainerWindow(QWidget):
         self.btn_add_rec = QPushButton("Добавить рекомендацию")
         self.btn_add_rec.clicked.connect(self.add_rec)
         rec_layout.addWidget(self.btn_add_rec)
-        layout.addLayout(rec_layout)
+        journal_layout.addLayout(rec_layout)
+        journal_tab.setLayout(journal_layout)
+        tabs.addTab(journal_tab, "Журнал")
 
         # блокировка времени
-        layout.addWidget(QLabel("<b>Блокировка времени</b>"))
+        block_tab = QWidget()
+        block_layout = QVBoxLayout()
+        block_layout.addWidget(QLabel("<b>Блокировка времени</b>"))
         bform = QFormLayout()
         self.block_date = QDateEdit(); self.block_date.setDate(QDate.currentDate())
         self.block_start = QTimeEdit(); self.block_end = QTimeEdit()
@@ -87,8 +96,11 @@ class TrainerWindow(QWidget):
         self.btn_block_time = QPushButton("Заблокировать")
         self.btn_block_time.clicked.connect(self.do_block_time)
         bform.addRow(self.btn_block_time)
-        layout.addLayout(bform)
+        block_layout.addLayout(bform)
+        block_tab.setLayout(block_layout)
+        tabs.addTab(block_tab, "Блокировки")
 
+        layout.addWidget(tabs)
         self.setLayout(layout)
         self.load_schedule()
 
