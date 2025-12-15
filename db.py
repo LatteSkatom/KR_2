@@ -524,7 +524,7 @@ def director_staff_list():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
     cur.execute("""
-        SELECT fio, userType, phone
+        SELECT userID, fio, userType, phone
         FROM Users
         WHERE userType IN ('Тренер','Администратор')
         ORDER BY fio
@@ -538,9 +538,9 @@ def get_membership_prices():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
     cur.execute("""
-        SELECT membershipType, cost
+        SELECT membershipType, ROUND(AVG(cost), 2) AS cost
         FROM Memberships
-        GROUP BY membershipType, cost
+        GROUP BY membershipType
         ORDER BY membershipType
     """)
     rows = cur.fetchall()
@@ -556,8 +556,9 @@ def update_membership_price(membership_type, new_cost):
         WHERE membershipType=%s
     """, (new_cost, membership_type))
     conn.commit()
+    affected = cur.rowcount
     conn.close()
-    return True
+    return affected > 0
 
 def strategic_report():
     conn = get_connection()
@@ -608,8 +609,7 @@ def fire_staff(user_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        UPDATE Users
-        SET isActive=0
+        DELETE FROM Users
         WHERE userID=%s
           AND userType IN ('Тренер','Администратор')
     """, (user_id,))

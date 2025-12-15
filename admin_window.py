@@ -1,5 +1,5 @@
 # admin_window.py
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox, QDateEdit, QSpinBox, QTextEdit, QComboBox, QFileDialog
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox, QDateEdit, QSpinBox, QTextEdit, QComboBox, QFileDialog, QTabWidget
 from PyQt6.QtWidgets import QInputDialog
 from PyQt6.QtCore import QDate
 import datetime
@@ -18,7 +18,11 @@ class AdminWindow(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(QLabel("<h2>Панель администратора</h2>"))
 
-        # верх: кнопки действий
+        tabs = QTabWidget()
+
+        # ---- вкладка клиенты ----
+        clients_tab = QWidget()
+        clients_layout = QVBoxLayout()
         top = QHBoxLayout()
         self.btn_refresh_clients = QPushButton("Обновить список клиентов")
         self.btn_refresh_clients.clicked.connect(self.load_clients)
@@ -39,19 +43,30 @@ class AdminWindow(QWidget):
         self.btn_sales = QPushButton("Отчёт по продажам (год)")
         self.btn_sales.clicked.connect(self.show_sales_report)
         top.addWidget(self.btn_sales)
+        clients_layout.addLayout(top)
 
-        layout.addLayout(top)
-
-        # таблица клиентов
         self.clients_table = QTableWidget(0,6)
         self.clients_table.setHorizontalHeaderLabels(['ID','ФИО','Телефон','Email','Логин','Тип'])
-        layout.addWidget(self.clients_table)
+        clients_layout.addWidget(self.clients_table)
 
-        # жалобы
-        layout.addWidget(QLabel("<h3>Жалобы и пожелания</h3>"))
+        print_buttons = QHBoxLayout()
+        self.btn_print_card = QPushButton("Печать клубной карты для клиента")
+        self.btn_print_card.clicked.connect(self.print_card)
+        print_buttons.addWidget(self.btn_print_card)
+        self.btn_print_receipt = QPushButton("Печать квитанции (чек)")
+        self.btn_print_receipt.clicked.connect(self.print_receipt)
+        print_buttons.addWidget(self.btn_print_receipt)
+        clients_layout.addLayout(print_buttons)
+        clients_tab.setLayout(clients_layout)
+        tabs.addTab(clients_tab, "Клиенты")
+
+        # ---- вкладка жалоб ----
+        complaints_tab = QWidget()
+        comp_layout = QVBoxLayout()
+        comp_layout.addWidget(QLabel("<h3>Жалобы и пожелания</h3>"))
         self.complaints_table = QTableWidget(0,5)
         self.complaints_table.setHorizontalHeaderLabels(['ID','Клиент','Тема','Дата','Статус'])
-        layout.addWidget(self.complaints_table)
+        comp_layout.addWidget(self.complaints_table)
 
         comp_buttons = QHBoxLayout()
         self.btn_refresh_complaints = QPushButton("Обновить жалобы")
@@ -60,35 +75,33 @@ class AdminWindow(QWidget):
         self.btn_mark_comp = QPushButton("Пометить как обработано")
         self.btn_mark_comp.clicked.connect(self.mark_complaint_handled)
         comp_buttons.addWidget(self.btn_mark_comp)
-        layout.addLayout(comp_buttons)
+        comp_layout.addLayout(comp_buttons)
+        complaints_tab.setLayout(comp_layout)
+        tabs.addTab(complaints_tab, "Жалобы")
 
-        # акции
-        layout.addWidget(QLabel("<h3>Акции и скидки</h3>"))
+        # ---- вкладка акций ----
+        promos_tab = QWidget()
+        promos_layout = QVBoxLayout()
+        promos_layout.addWidget(QLabel("<h3>Акции и скидки</h3>"))
         promo_layout = QHBoxLayout()
-        self.promo_title = QLineEdit()
-        self.promo_title.setPlaceholderText("Название акции")
+        self.promo_title = QLineEdit(); self.promo_title.setPlaceholderText("Название акции")
         promo_layout.addWidget(self.promo_title)
-        self.promo_disc = QSpinBox()
-        self.promo_disc.setRange(0,100)
-        self.promo_disc.setSuffix("%")
+        self.promo_disc = QSpinBox(); self.promo_disc.setRange(0,100); self.promo_disc.setSuffix("%")
         promo_layout.addWidget(self.promo_disc)
-        self.promo_start = QDateEdit()
-        self.promo_start.setDate(QDate.currentDate())
+        self.promo_start = QDateEdit(); self.promo_start.setDate(QDate.currentDate())
         promo_layout.addWidget(self.promo_start)
-        self.promo_end = QDateEdit()
-        self.promo_end.setDate(QDate.currentDate().addDays(30))
+        self.promo_end = QDateEdit(); self.promo_end.setDate(QDate.currentDate().addDays(30))
         promo_layout.addWidget(self.promo_end)
-        self.promo_desc = QLineEdit()
-        self.promo_desc.setPlaceholderText("Краткое описание")
+        self.promo_desc = QLineEdit(); self.promo_desc.setPlaceholderText("Краткое описание")
         promo_layout.addWidget(self.promo_desc)
         self.btn_add_promo = QPushButton("Добавить акцию")
         self.btn_add_promo.clicked.connect(self.add_promo)
         promo_layout.addWidget(self.btn_add_promo)
-        layout.addLayout(promo_layout)
+        promos_layout.addLayout(promo_layout)
 
         self.promo_table = QTableWidget(0,5)
         self.promo_table.setHorizontalHeaderLabels(['ID','Название','Описание','Скидка','Активна'])
-        layout.addWidget(self.promo_table)
+        promos_layout.addWidget(self.promo_table)
 
         promo_buttons = QHBoxLayout()
         self.btn_refresh_promos = QPushButton("Обновить акции")
@@ -97,20 +110,13 @@ class AdminWindow(QWidget):
         self.btn_toggle_promo = QPushButton("Вкл/Выкл выделенную акцию")
         self.btn_toggle_promo.clicked.connect(self.toggle_promo)
         promo_buttons.addWidget(self.btn_toggle_promo)
-        layout.addLayout(promo_buttons)
+        promos_layout.addLayout(promo_buttons)
+        promos_tab.setLayout(promos_layout)
+        tabs.addTab(promos_tab, "Акции")
 
-        # печать карт/чеков (имитация)
-        print_buttons = QHBoxLayout()
-        self.btn_print_card = QPushButton("Печать клубной карты для клиента")
-        self.btn_print_card.clicked.connect(self.print_card)
-        print_buttons.addWidget(self.btn_print_card)
-        self.btn_print_receipt = QPushButton("Печать квитанции (чек)")
-        self.btn_print_receipt.clicked.connect(self.print_receipt)
-        print_buttons.addWidget(self.btn_print_receipt)
-        layout.addLayout(print_buttons)
-
+        layout.addWidget(tabs)
         self.setLayout(layout)
-        # загрузки
+
         self.load_clients()
         self.load_complaints()
         self.load_promos()

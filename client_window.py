@@ -139,16 +139,16 @@ class ClientWindow(QWidget):
     def build_history_tab(self):
         w = QWidget()
         self.history_table = QTableWidget(0, 3)
-        self.history_table.setHorizontalHeaderLabels(['Дата', 'Описание', 'Метрики'])
+        self.history_table.setHorizontalHeaderLabels(['Тип', 'Дата', 'Описание'])
         QVBoxLayout(w).addWidget(self.history_table)
         return w
 
     def build_profile_tab(self):
         w = QWidget()
-        self.anthro_table = QTableWidget(0, 6)
-        self.anthro_table.setHorizontalHeaderLabels(
-            ['Дата', 'Вес', 'Рост', 'Грудь', 'Талия', 'Бёдра']
-        )
+        self.anthro_table = QTableWidget(0, 5)
+        self.anthro_table.setHorizontalHeaderLabels([
+            'Дата', 'Вес', 'Рост', '% жира', 'Примечание'
+        ])
         QVBoxLayout(w).addWidget(self.anthro_table)
         return w
 
@@ -276,7 +276,7 @@ class ClientWindow(QWidget):
         for r in get_training_history(self.client_id):
             row = self.history_table.rowCount()
             self.history_table.insertRow(row)
-            for i, k in enumerate(['date', 'description', 'metrics']):
+            for i, k in enumerate(['trainingType', 'date', 'description']):
                 self.history_table.setItem(row, i, QTableWidgetItem(str(r.get(k, ''))))
 
     def refresh_anthro(self):
@@ -284,7 +284,7 @@ class ClientWindow(QWidget):
         for r in get_anthropometrics(self.client_id):
             row = self.anthro_table.rowCount()
             self.anthro_table.insertRow(row)
-            for i, k in enumerate(['recordDate', 'weight', 'height', 'chest', 'waist', 'hips']):
+            for i, k in enumerate(['recordDate', 'weight', 'height', 'bodyFat', 'notes']):
                 self.anthro_table.setItem(row, i, QTableWidgetItem(str(r.get(k, ''))))
 
     def refresh_notifications(self):
