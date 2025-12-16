@@ -1,7 +1,36 @@
 import MySQLdb as mdb
 
+_FIO_MODE = None
+
+
+def _detect_fio_mode():
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='Users'
+            """
+        )
+        cols = {row[0] for row in cur.fetchall()}
+        conn.close()
+        if {"lastName", "firstName", "middleName"}.issubset(cols):
+            return "split"
+        if "fio" in cols:
+            return "single"
+    except Exception:
+        pass
+    return "split"
+
 
 def _fio_alias(column_prefix: str = "u"):
+    global _FIO_MODE
+    if _FIO_MODE is None:
+        _FIO_MODE = _detect_fio_mode()
+    if _FIO_MODE == "single":
+        return f"{column_prefix}.fio"
     return f"CONCAT_WS(' ', {column_prefix}.lastName, {column_prefix}.firstName, {column_prefix}.middleName)"
 
 
