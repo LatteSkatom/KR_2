@@ -38,7 +38,7 @@ class ClientWindow(QWidget):
         self.resize(900, 600)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"<h2>Добро пожаловать, {user.get('fio','').split()[0]}!</h2>"))
+
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self.build_schedule_tab(), "Расписание")

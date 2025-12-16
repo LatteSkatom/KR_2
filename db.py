@@ -9,16 +9,17 @@ def _detect_fio_mode():
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT lastName, firstName, middleName FROM Users LIMIT 1")
-        cur.fetchone()
-        return "split"
-    except Exception:
-        try:
-            cur.execute("SELECT fio FROM Users LIMIT 1")
-            cur.fetchone()
-            return "single"
-        except Exception:
+        cur.execute("SHOW COLUMNS FROM Users")
+        columns = {row[0] for row in cur.fetchall()}
+
+        has_split = {"lastName", "firstName"}.issubset(columns)
+        has_single = "fio" in columns
+
+        if has_split:
             return "split"
+        if has_single:
+            return "single"
+        return "split"
     finally:
         conn.close()
 
@@ -41,6 +42,14 @@ def _fio_order_clause(prefix: str = ""):
     if _get_fio_mode() == "single":
         return f"{column_prefix}fio"
     return f"{column_prefix}lastName, {column_prefix}firstName"
+
+
+def _fio_group_clause(prefix: str = ""):
+    """Return columns required to group by FIO alias in strict SQL modes."""
+    column_prefix = f"{prefix}." if prefix else ""
+    if _get_fio_mode() == "single":
+        return f"{column_prefix}fio"
+    return f"{column_prefix}lastName, {column_prefix}firstName, {column_prefix}middleName"
 
 
 def _name_columns_and_values(fio: str):
@@ -665,7 +674,7 @@ def director_trainer_efficiency():
         LEFT JOIN GroupClasses g ON g.trainerID=u.userID
         LEFT JOIN PersonalTraining pt ON pt.trainerID=u.userID
         WHERE u.userType='Тренер'
-        GROUP BY u.userID
+        GROUP BY u.userID, {_fio_group_clause('u')}
     """)
     rows = cur.fetchall()
     conn.close()
@@ -718,10 +727,10 @@ def director_staff_list():
     else:
         cur.execute(
             f"""
-            SELECT userID, lastName, firstName, middleName, {_fio_alias()} AS fio, userType, phone
-            FROM Users
-            WHERE userType IN ('Тренер','Администратор')
-            ORDER BY {_fio_order_clause()}
+            SELECT u.userID, u.lastName, u.firstName, u.middleName, {_fio_alias('u')} AS fio, u.userType, u.phone
+            FROM Users u
+            WHERE u.userType IN ('Тренер','Администратор')
+            ORDER BY {_fio_order_clause('u')}
         """
         )
         rows = cur.fetchall()
@@ -773,7 +782,7 @@ def strategic_report():
         FROM Users u
         LEFT JOIN PersonalTraining pt ON pt.trainerID=u.userID
         WHERE u.userType='Тренер'
-        GROUP BY u.userID
+        GROUP BY u.userID, {_fio_group_clause('u')}
         ORDER BY c DESC
         LIMIT 1
     """)
