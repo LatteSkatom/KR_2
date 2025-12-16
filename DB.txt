@@ -7,7 +7,9 @@ USE fitness;
 -- =========================
 CREATE TABLE Users (
     userID INT AUTO_INCREMENT PRIMARY KEY,
-    fio VARCHAR(255) NOT NULL,
+    lastName VARCHAR(100) NOT NULL,
+    firstName VARCHAR(100) NOT NULL,
+    middleName VARCHAR(100),
     phone VARCHAR(50),
     email VARCHAR(100),
     login VARCHAR(50) UNIQUE NOT NULL,
@@ -251,15 +253,15 @@ USE fitness;
 -- =========================
 -- Пользователи
 -- =========================
-INSERT INTO Users (fio, phone, email, login, password, userType, birthDate) VALUES
-('Иванов Иван Иванович', '79001112233', 'ivan@mail.ru', 'client1', '123', 'Клиент', '1998-05-10'),
-('Петров Пётр Петрович', '79002223344', 'petr@mail.ru', 'client2', '123', 'Клиент', '1995-03-22'),
+INSERT INTO Users (lastName, firstName, middleName, phone, email, login, password, userType, birthDate) VALUES
+('Иванов', 'Иван', 'Иванович', '79001112233', 'ivan@mail.ru', 'client1', '123', 'Клиент', '1998-05-10'),
+('Петров', 'Пётр', 'Петрович', '79002223344', 'petr@mail.ru', 'client2', '123', 'Клиент', '1995-03-22'),
 
-('Сидоров Сергей Сергеевич', '79003334455', 'trainer@mail.ru', 'trainer1', '123', 'Тренер', '1990-01-15'),
+('Сидоров', 'Сергей', 'Сергеевич', '79003334455', 'trainer@mail.ru', 'trainer1', '123', 'Тренер', '1990-01-15'),
 
-('Админ Администратор', '79004445566', 'admin@mail.ru', 'admin', '123', 'Администратор', '1985-07-01'),
+('Админ', 'Администратор', NULL, '79004445566', 'admin@mail.ru', 'admin', '123', 'Администратор', '1985-07-01'),
 
-('Директор Директор', '79005556677', 'director@mail.ru', 'director', '123', 'Директор', '1980-09-09');
+('Директор', 'Директор', NULL, '79005556677', 'director@mail.ru', 'director', '123', 'Директор', '1980-09-09');
 
 -- =========================
 -- Абонементы

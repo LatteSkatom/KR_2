@@ -1,6 +1,18 @@
 # db.py
 import MySQLdb as mdb
 
+
+def _fio_alias(column_prefix: str = "u"):
+    return f"CONCAT_WS(' ', {column_prefix}.lastName, {column_prefix}.firstName, {column_prefix}.middleName)"
+
+
+def split_fio(fio: str):
+    parts = (fio or "").strip().split()
+    last = parts[0] if len(parts) > 0 else ""
+    first = parts[1] if len(parts) > 1 else ""
+    middle = " ".join(parts[2:]) if len(parts) > 2 else ""
+    return last, first, middle
+
 def get_connection():
     return mdb.connect(
         host='localhost',
@@ -16,7 +28,11 @@ def check_user(login: str, password: str):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
     cur.execute(
-        "SELECT * FROM Users WHERE login=%s AND password=%s",
+        f"""
+        SELECT u.*, {_fio_alias()} AS fio
+        FROM Users u
+        WHERE login=%s AND password=%s
+        """,
         (login, password)
     )
     row = cur.fetchone()
@@ -29,8 +45,8 @@ def check_user(login: str, password: str):
 def get_schedule():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
-    cur.execute("""
-        SELECT g.*, u.fio AS trainerName
+    cur.execute(f"""
+        SELECT g.*, {_fio_alias('u')} AS trainerName
         FROM GroupClasses g
         LEFT JOIN Users u ON g.trainerID = u.userID
         ORDER BY g.classDate, g.startTime
@@ -61,9 +77,9 @@ def get_enrollments_for_client(client_id):
         )
         UNION ALL
         (
-            SELECT 
+            SELECT
                 pt.trainingID AS classID,
-                CONCAT('Персональная тренировка с ', u.fio) AS className,
+                CONCAT('Персональная тренировка с ', {_fio_alias('u')}) AS className,
                 pt.trainingDate AS classDate,
                 pt.startTime AS startTime,
                 'Записан' AS status,
@@ -81,9 +97,61 @@ def get_enrollments_for_client(client_id):
 
 
 
+def _membership_is_active_for_date(client_id, target_date):
+    """Check that the client has an active membership covering the target date."""
+    conn = get_connection()
+    cur = conn.cursor(mdb.cursors.DictCursor)
+    cur.execute(
+        """
+        SELECT *
+        FROM Memberships
+        WHERE clientID=%s
+        ORDER BY endDate DESC
+        LIMIT 1
+        """,
+        (client_id,),
+    )
+    membership = cur.fetchone()
+    conn.close()
+
+    if not membership:
+        return False
+
+    if membership.get("membershipStatus") != "Активен":
+        return False
+
+    start_date = membership.get("startDate")
+    end_date = membership.get("endDate")
+
+    if not (start_date and end_date):
+        return False
+
+    if not (start_date <= target_date <= end_date):
+        return False
+
+    visits_total = membership.get("visitsTotal")
+    visits_used = membership.get("visitsUsed") or 0
+    if visits_total is not None and visits_total > 0 and visits_used >= visits_total:
+        return False
+
+    return True
+
+
 def enroll_client_in_class(client_id, class_id):
     conn = get_connection()
     cur = conn.cursor()
+
+    # Проверяем наличие активного абонемента на дату занятия
+    cur.execute("SELECT classDate FROM GroupClasses WHERE classID=%s", (class_id,))
+    date_row = cur.fetchone()
+    if not date_row:
+        conn.close()
+        return False
+    class_date = date_row[0]
+
+    if not _membership_is_active_for_date(client_id, class_date):
+        conn.close()
+        return False
 
     # Проверка вместимости
     cur.execute("SELECT maxParticipants FROM GroupClasses WHERE classID=%s", (class_id,))
@@ -139,9 +207,32 @@ def get_membership_for_client(client_id):
 # --------------------------------------------
 # Персональные тренировки
 # --------------------------------------------
+def _trainer_is_blocked(trainer_id, date, start_time, end_time):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 1
+        FROM TrainerBlockedTime
+        WHERE trainerID=%s
+          AND blockDate=%s
+          AND NOT (%s >= endTime OR %s <= startTime)
+        LIMIT 1
+        """,
+        (trainer_id, date, start_time, end_time),
+    )
+    blocked = cur.fetchone() is not None
+    conn.close()
+    return blocked
+
+
 def book_personal_training(client_id, trainer_id, date, start_time, end_time, notes):
     conn = get_connection()
     cur = conn.cursor()
+
+    if not _membership_is_active_for_date(client_id, date):
+        conn.close()
+        return False
 
     # ❌ проверка: клиент уже занят
     cur.execute("""
@@ -164,6 +255,10 @@ def book_personal_training(client_id, trainer_id, date, start_time, end_time, no
     """, (trainer_id, date, start_time, end_time))
 
     if cur.fetchone():
+        conn.close()
+        return False
+
+    if _trainer_is_blocked(trainer_id, date, start_time, end_time):
         conn.close()
         return False
 
@@ -252,10 +347,11 @@ from typing import List, Dict
 def register_client(fio, phone, email, login, password, birthDate=None):
     conn = get_connection()
     cur = conn.cursor()
+    last, first, middle = split_fio(fio)
     cur.execute("""
-        INSERT INTO Users (fio, phone, email, login, password, userType, birthDate)
-        VALUES (%s,%s,%s,%s,%s,'Клиент',%s)
-    """, (fio, phone, email, login, password, birthDate))
+        INSERT INTO Users (lastName, firstName, middleName, phone, email, login, password, userType, birthDate)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,'Клиент',%s)
+    """, (last, first, middle, phone, email, login, password, birthDate))
     conn.commit()
     new_id = cur.lastrowid
     conn.close()
@@ -301,7 +397,16 @@ def block_membership(membership_id):
 def get_clients(limit=200):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("SELECT * FROM Users ORDER BY fio LIMIT %s", (limit,))
+    cur.execute(
+        f"""
+        SELECT userID, lastName, firstName, middleName, phone, email, login, userType, birthDate,
+               {_fio_alias()} AS fio
+        FROM Users u
+        ORDER BY lastName, firstName
+        LIMIT %s
+        """,
+        (limit,),
+    )
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -321,9 +426,25 @@ def get_complaints(status=None):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
     if status:
-        cur.execute("SELECT c.*, u.fio FROM Complaints c LEFT JOIN Users u ON c.clientID=u.userID WHERE c.status=%s ORDER BY c.createdAt DESC", (status,))
+        cur.execute(
+            f"""
+            SELECT c.*, {_fio_alias('u')} AS fio
+            FROM Complaints c
+            LEFT JOIN Users u ON c.clientID=u.userID
+            WHERE c.status=%s
+            ORDER BY c.createdAt DESC
+            """,
+            (status,),
+        )
     else:
-        cur.execute("SELECT c.*, u.fio FROM Complaints c LEFT JOIN Users u ON c.clientID=u.userID ORDER BY c.createdAt DESC")
+        cur.execute(
+            f"""
+            SELECT c.*, {_fio_alias('u')} AS fio
+            FROM Complaints c
+            LEFT JOIN Users u ON c.clientID=u.userID
+            ORDER BY c.createdAt DESC
+            """
+        )
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -390,7 +511,15 @@ def sales_report_by_month(year):
 def get_enrolled_for_class(class_id):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("SELECT e.enrollmentID, e.clientID, u.fio FROM Enrollments e JOIN Users u ON e.clientID=u.userID WHERE e.classID=%s", (class_id,))
+    cur.execute(
+        f"""
+        SELECT e.enrollmentID, e.clientID, {_fio_alias('u')} AS fio
+        FROM Enrollments e
+        JOIN Users u ON e.clientID=u.userID
+        WHERE e.classID=%s
+        """,
+        (class_id,),
+    )
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -432,7 +561,16 @@ def add_training_journal(trainer_id, client_id, journalDate, notes, metrics):
 def get_training_journal_for_client(client_id):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("SELECT tj.*, u.fio as trainerName FROM TrainingJournal tj LEFT JOIN Users u ON tj.trainerID=u.userID WHERE tj.clientID=%s ORDER BY tj.journalDate DESC", (client_id,))
+    cur.execute(
+        f"""
+        SELECT tj.*, {_fio_alias('u')} as trainerName
+        FROM TrainingJournal tj
+        LEFT JOIN Users u ON tj.trainerID=u.userID
+        WHERE tj.clientID=%s
+        ORDER BY tj.journalDate DESC
+        """,
+        (client_id,),
+    )
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -448,7 +586,16 @@ def add_recommendation(trainer_id, client_id, text):
 def get_recommendations_for_client(client_id):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("SELECT r.*, u.fio as trainerName FROM Recommendations r LEFT JOIN Users u ON r.trainerID=u.userID WHERE r.clientID=%s ORDER BY r.createdAt DESC", (client_id,))
+    cur.execute(
+        f"""
+        SELECT r.*, {_fio_alias('u')} as trainerName
+        FROM Recommendations r
+        LEFT JOIN Users u ON r.trainerID=u.userID
+        WHERE r.clientID=%s
+        ORDER BY r.createdAt DESC
+        """,
+        (client_id,),
+    )
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -488,8 +635,8 @@ def director_general_stats():
 def director_trainer_efficiency():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
-    cur.execute("""
-        SELECT u.fio,
+    cur.execute(f"""
+        SELECT {_fio_alias('u')} AS fio,
         COUNT(DISTINCT g.classID) AS group_count,
         COUNT(DISTINCT pt.trainingID) AS pt_count,
         COUNT(DISTINCT pt.clientID) AS clients
@@ -523,12 +670,14 @@ def director_finance_stats():
 def director_staff_list():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
-    cur.execute("""
-        SELECT userID, fio, userType, phone
+    cur.execute(
+        f"""
+        SELECT userID, {_fio_alias()} AS fio, userType, phone
         FROM Users
         WHERE userType IN ('Тренер','Администратор')
-        ORDER BY fio
-    """)
+        ORDER BY lastName, firstName
+    """
+    )
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -573,8 +722,8 @@ def strategic_report():
     cur.execute("SELECT SUM(cost) s FROM Memberships")
     revenue = cur.fetchone()['s'] or 0
 
-    cur.execute("""
-        SELECT u.fio, COUNT(pt.trainingID) c
+    cur.execute(f"""
+        SELECT {_fio_alias('u')} AS fio, COUNT(pt.trainingID) c
         FROM Users u
         LEFT JOIN PersonalTraining pt ON pt.trainerID=u.userID
         WHERE u.userType='Тренер'
@@ -596,10 +745,11 @@ def strategic_report():
 def hire_staff(fio, phone, email, login, password, userType, birthDate=None):
     conn = get_connection()
     cur = conn.cursor()
+    last, first, middle = split_fio(fio)
     cur.execute("""
-        INSERT INTO Users (fio, phone, email, login, password, userType, birthDate)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-    """, (fio, phone, email, login, password, userType, birthDate))
+        INSERT INTO Users (lastName, firstName, middleName, phone, email, login, password, userType, birthDate)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """, (last, first, middle, phone, email, login, password, userType, birthDate))
     conn.commit()
     staff_id = cur.lastrowid
     conn.close()
