@@ -190,66 +190,69 @@ def get_membership_for_client(client_id):
 
 def _trainer_is_blocked(trainer_id, date, start_time, end_time):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT 1
-        FROM TrainerBlockedTime
-        WHERE trainerID=%s
-          AND blockDate=%s
-          AND NOT (%s >= endTime OR %s <= startTime)
-        LIMIT 1
-        """,
-        (trainer_id, date, start_time, end_time),
-    )
-    blocked = cur.fetchone() is not None
-    conn.close()
-    return blocked
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT 1
+            FROM TrainerBlockedTime
+            WHERE trainerID=%s
+              AND blockDate=%s
+              AND NOT (%s >= endTime OR %s <= startTime)
+            LIMIT 1
+            """,
+            (trainer_id, date, start_time, end_time),
+        )
+        return cur.fetchone() is not None
+    except mdb.Error:
+        return True
+    finally:
+        conn.close()
 
 
 def book_personal_training(client_id, trainer_id, date, start_time, end_time, notes):
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    if not _membership_is_active_for_date(client_id, date):
-        conn.close()
+        if not _membership_is_active_for_date(client_id, date):
+            return False
+
+        cur.execute("""
+            SELECT 1 FROM PersonalTraining
+            WHERE clientID=%s
+              AND trainingDate=%s
+              AND NOT (%s >= endTime OR %s <= startTime)
+        """, (client_id, date, start_time, end_time))
+
+        if cur.fetchone():
+            return False
+
+        cur.execute("""
+            SELECT 1 FROM PersonalTraining
+            WHERE trainerID=%s
+              AND trainingDate=%s
+              AND NOT (%s >= endTime OR %s <= startTime)
+        """, (trainer_id, date, start_time, end_time))
+
+        if cur.fetchone():
+            return False
+
+        if _trainer_is_blocked(trainer_id, date, start_time, end_time):
+            return False
+
+        cur.execute("""
+            INSERT INTO PersonalTraining
+            (clientID, trainerID, trainingDate, startTime, endTime, notes)
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (client_id, trainer_id, date, start_time, end_time, notes))
+
+        conn.commit()
+        return True
+    except mdb.Error:
         return False
-
-    cur.execute("""
-        SELECT 1 FROM PersonalTraining
-        WHERE clientID=%s
-          AND trainingDate=%s
-          AND NOT (%s >= endTime OR %s <= startTime)
-    """, (client_id, date, start_time, end_time))
-
-    if cur.fetchone():
+    finally:
         conn.close()
-        return False
-
-    cur.execute("""
-        SELECT 1 FROM PersonalTraining
-        WHERE trainerID=%s
-          AND trainingDate=%s
-          AND NOT (%s >= endTime OR %s <= startTime)
-    """, (trainer_id, date, start_time, end_time))
-
-    if cur.fetchone():
-        conn.close()
-        return False
-
-    if _trainer_is_blocked(trainer_id, date, start_time, end_time):
-        conn.close()
-        return False
-
-    cur.execute("""
-        INSERT INTO PersonalTraining
-        (clientID, trainerID, trainingDate, startTime, endTime, notes)
-        VALUES (%s,%s,%s,%s,%s,%s)
-    """, (client_id, trainer_id, date, start_time, end_time, notes))
-
-    conn.commit()
-    conn.close()
-    return True
 
 
 
