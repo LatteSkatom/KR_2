@@ -1,3 +1,5 @@
+import datetime
+
 import MySQLdb as mdb
 
 _FIO_MODE = None
@@ -117,7 +119,19 @@ def get_enrollments_for_client(client_id):
 
 
 def _membership_is_active_for_date(client_id, target_date):
-    """Check that the client has an active membership covering the target date."""
+    def _to_date(val):
+        if isinstance(val, datetime.date):
+            return val
+        if hasattr(val, "date"):
+            try:
+                return val.date()
+            except Exception:
+                return None
+        try:
+            return datetime.date.fromisoformat(str(val))
+        except Exception:
+            return None
+
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
     cur.execute(
@@ -139,13 +153,14 @@ def _membership_is_active_for_date(client_id, target_date):
     if membership.get("membershipStatus") != "Активен":
         return False
 
-    start_date = membership.get("startDate")
-    end_date = membership.get("endDate")
+    start_date = _to_date(membership.get("startDate"))
+    end_date = _to_date(membership.get("endDate"))
+    target = _to_date(target_date)
 
-    if not (start_date and end_date):
+    if not (start_date and end_date and target):
         return False
 
-    if not (start_date <= target_date <= end_date):
+    if not (start_date <= target <= end_date):
         return False
 
     visits_total = membership.get("visitsTotal")
