@@ -44,6 +44,14 @@ def _fio_order_clause(prefix: str = ""):
     return f"{column_prefix}lastName, {column_prefix}firstName"
 
 
+def _fio_group_clause(prefix: str = ""):
+    """Return columns required to group by FIO alias in strict SQL modes."""
+    column_prefix = f"{prefix}." if prefix else ""
+    if _get_fio_mode() == "single":
+        return f"{column_prefix}fio"
+    return f"{column_prefix}lastName, {column_prefix}firstName, {column_prefix}middleName"
+
+
 def _name_columns_and_values(fio: str):
     mode = _get_fio_mode()
     if mode == "single":
@@ -666,7 +674,7 @@ def director_trainer_efficiency():
         LEFT JOIN GroupClasses g ON g.trainerID=u.userID
         LEFT JOIN PersonalTraining pt ON pt.trainerID=u.userID
         WHERE u.userType='Тренер'
-        GROUP BY u.userID
+        GROUP BY u.userID, {_fio_group_clause('u')}
     """)
     rows = cur.fetchall()
     conn.close()
@@ -774,7 +782,7 @@ def strategic_report():
         FROM Users u
         LEFT JOIN PersonalTraining pt ON pt.trainerID=u.userID
         WHERE u.userType='Тренер'
-        GROUP BY u.userID
+        GROUP BY u.userID, {_fio_group_clause('u')}
         ORDER BY c DESC
         LIMIT 1
     """)
