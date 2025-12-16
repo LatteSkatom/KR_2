@@ -31,7 +31,8 @@ from db import (
 
 
 class DirectorWindow(QWidget):
-    """Панель директора с вкладками под ключевые задачи управления клубом."""
+
+
 
     def __init__(self, user):
         super().__init__()
@@ -41,12 +42,7 @@ class DirectorWindow(QWidget):
 
         root = QVBoxLayout()
         root.addWidget(QLabel("<h2>Панель директора</h2>"))
-        root.addWidget(
-            QLabel(
-                "Контролируйте показатели клуба, принимайте управленческие решения \"
-                "и оформляйте кадровые действия из одного окна."
-            )
-        )
+
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_general_tab(), "Статистика")
@@ -71,12 +67,7 @@ class DirectorWindow(QWidget):
     def _build_general_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(
-            QLabel(
-                "Ключевые показатели клуба: текущая загрузка, посещаемость, активные "
-                "абонементы и другие базовые метрики."
-            )
-        )
+
 
         self.general_table = QTableWidget(0, 2)
         self.general_table.setHorizontalHeaderLabels(["Показатель", "Значение"])
@@ -86,12 +77,7 @@ class DirectorWindow(QWidget):
     def _build_trainers_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(
-            QLabel(
-                "Сравнивайте продажи, посещаемость и KPI тренеров. Используйте "
-                "данные для стимулирования роста и балансировки нагрузки."
-            )
-        )
+
 
         self.trainer_table = QTableWidget(0, 5)
         self.trainer_table.setHorizontalHeaderLabels(
@@ -103,12 +89,7 @@ class DirectorWindow(QWidget):
     def _build_finance_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(
-            QLabel(
-                "Контролируйте выручку, отслеживайте расходы и видите прибыль по "
-                "месяцам, чтобы принимать финансовые решения."
-            )
-        )
+
 
         self.finance_table = QTableWidget(0, 4)
         self.finance_table.setHorizontalHeaderLabels([
@@ -123,12 +104,7 @@ class DirectorWindow(QWidget):
     def _build_prices_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(
-            QLabel(
-                "Управляйте ценовой политикой: утверждайте изменения тарифов и \"
-                "скидки по абонементам."
-            )
-        )
+
 
         self.price_table = QTableWidget(0, 2)
         self.price_table.setHorizontalHeaderLabels(["Тип абонемента", "Цена"])
@@ -149,12 +125,7 @@ class DirectorWindow(QWidget):
     def _build_report_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(
-            QLabel(
-                "Формируйте стратегические отчёты: динамика роста, отток клиентов, "
-                "эффективность продаж."
-            )
-        )
+
 
         self.report_text = QTextEdit()
         self.report_text.setReadOnly(True)
@@ -168,12 +139,7 @@ class DirectorWindow(QWidget):
     def _build_staff_tab(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.addWidget(
-            QLabel(
-                "Принимайте решения о найме и увольнении персонала. Выбирайте \"
-                "кандидатов по ФИО и роли."
-            )
-        )
+
 
         self.staff_table = QTableWidget(0, 6)
         self.staff_table.setHorizontalHeaderLabels(
