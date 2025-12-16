@@ -55,7 +55,6 @@ class ClientWindow(QWidget):
 
         self.refresh_all()
 
-    # ---------- helpers ----------
 
     def refresh_all(self):
         for fn in (
@@ -111,7 +110,6 @@ class ClientWindow(QWidget):
 
         return True
 
-    # ---------- tabs ----------
 
     def build_schedule_tab(self):
         w = QWidget()
@@ -221,7 +219,6 @@ class ClientWindow(QWidget):
         v.addWidget(b)
         return w
 
-    # ---------- logic ----------
 
     def refresh_schedule(self):
         self.schedule_table.setRowCount(0)

@@ -44,7 +44,6 @@ class DirectorWindow(QWidget):
         self.load_prices()
         self.load_staff()
 
-    # -------- tabs --------
 
     def build_general_tab(self):
         w = QWidget()
@@ -116,11 +115,16 @@ class DirectorWindow(QWidget):
         v.addLayout(btns)
         return w
 
-    # -------- load --------
 
     def load_general(self):
         self.general_table.setRowCount(0)
-        for k, v in director_general_stats().items():
+        try:
+            stats = director_general_stats()
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить статистику: {exc}")
+            return
+
+        for k, v in stats.items():
             r = self.general_table.rowCount()
             self.general_table.insertRow(r)
             self.general_table.setItem(r, 0, QTableWidgetItem(k))
@@ -128,7 +132,13 @@ class DirectorWindow(QWidget):
 
     def load_trainers(self):
         self.trainer_table.setRowCount(0)
-        for rdata in director_trainer_efficiency():
+        try:
+            rows = director_trainer_efficiency()
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные по тренерам: {exc}")
+            return
+
+        for rdata in rows:
             r = self.trainer_table.rowCount()
             self.trainer_table.insertRow(r)
             self.trainer_table.setItem(r, 0, QTableWidgetItem(rdata['fio']))
@@ -138,7 +148,13 @@ class DirectorWindow(QWidget):
 
     def load_finance(self):
         self.finance_table.setRowCount(0)
-        for rdata in director_finance_stats():
+        try:
+            rows = director_finance_stats()
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить финансы: {exc}")
+            return
+
+        for rdata in rows:
             r = self.finance_table.rowCount()
             self.finance_table.insertRow(r)
             self.finance_table.setItem(r, 0, QTableWidgetItem(rdata['month']))
@@ -163,7 +179,13 @@ class DirectorWindow(QWidget):
 
     def load_staff(self):
         self.staff_table.setRowCount(0)
-        for rdata in director_staff_list():
+        try:
+            rows = director_staff_list()
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить сотрудников: {exc}")
+            return
+
+        for rdata in rows:
             r = self.staff_table.rowCount()
             self.staff_table.insertRow(r)
             self.staff_table.setItem(r, 0, QTableWidgetItem(str(rdata['userID'])))
@@ -171,7 +193,6 @@ class DirectorWindow(QWidget):
             self.staff_table.setItem(r, 2, QTableWidgetItem(rdata['userType']))
             self.staff_table.setItem(r, 3, QTableWidgetItem(rdata.get('phone', '')))
 
-    # -------- actions --------
 
     def change_price(self):
         r = self.price_table.currentRow()

@@ -1,4 +1,3 @@
-# db.py
 import MySQLdb as mdb
 
 
@@ -21,9 +20,6 @@ def get_connection():
         db='fitness'
     )
 
-# --------------------------------------------
-# Авторизация
-# --------------------------------------------
 def check_user(login: str, password: str):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -39,9 +35,6 @@ def check_user(login: str, password: str):
     conn.close()
     return row
 
-# --------------------------------------------
-# Расписание групповых занятий
-# --------------------------------------------
 def get_schedule():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -55,9 +48,6 @@ def get_schedule():
     conn.close()
     return rows
 
-# --------------------------------------------
-# Записи клиента
-# --------------------------------------------
 def get_enrollments_for_client(client_id):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -141,7 +131,6 @@ def enroll_client_in_class(client_id, class_id):
     conn = get_connection()
     cur = conn.cursor()
 
-    # Проверяем наличие активного абонемента на дату занятия
     cur.execute("SELECT classDate FROM GroupClasses WHERE classID=%s", (class_id,))
     date_row = cur.fetchone()
     if not date_row:
@@ -153,7 +142,6 @@ def enroll_client_in_class(client_id, class_id):
         conn.close()
         return False
 
-    # Проверка вместимости
     cur.execute("SELECT maxParticipants FROM GroupClasses WHERE classID=%s", (class_id,))
     row = cur.fetchone()
     if not row:
@@ -167,7 +155,6 @@ def enroll_client_in_class(client_id, class_id):
         conn.close()
         return False
 
-    # Уже записан?
     cur.execute("SELECT * FROM Enrollments WHERE classID=%s AND clientID=%s", (class_id, client_id))
     if cur.fetchone():
         conn.close()
@@ -187,9 +174,6 @@ def cancel_enrollment(client_id, class_id):
     conn.close()
     return affected > 0
 
-# --------------------------------------------
-# Абонемент
-# --------------------------------------------
 def get_membership_for_client(client_id):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -204,9 +188,6 @@ def get_membership_for_client(client_id):
     conn.close()
     return row
 
-# --------------------------------------------
-# Персональные тренировки
-# --------------------------------------------
 def _trainer_is_blocked(trainer_id, date, start_time, end_time):
     conn = get_connection()
     cur = conn.cursor()
@@ -234,7 +215,6 @@ def book_personal_training(client_id, trainer_id, date, start_time, end_time, no
         conn.close()
         return False
 
-    # ❌ проверка: клиент уже занят
     cur.execute("""
         SELECT 1 FROM PersonalTraining
         WHERE clientID=%s
@@ -246,7 +226,6 @@ def book_personal_training(client_id, trainer_id, date, start_time, end_time, no
         conn.close()
         return False
 
-    # ❌ проверка: тренер занят
     cur.execute("""
         SELECT 1 FROM PersonalTraining
         WHERE trainerID=%s
@@ -262,7 +241,6 @@ def book_personal_training(client_id, trainer_id, date, start_time, end_time, no
         conn.close()
         return False
 
-    # ✅ запись
     cur.execute("""
         INSERT INTO PersonalTraining
         (clientID, trainerID, trainingDate, startTime, endTime, notes)
@@ -289,9 +267,6 @@ def cancel_personal_training(training_id):
 
 
 
-# --------------------------------------------
-# История тренировок
-# --------------------------------------------
 def get_training_history(client_id):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -300,9 +275,6 @@ def get_training_history(client_id):
     conn.close()
     return rows
 
-# --------------------------------------------
-# Антропометрия
-# --------------------------------------------
 def get_anthropometrics(client_id):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -316,9 +288,6 @@ def get_anthropometrics(client_id):
     conn.close()
     return rows
 
-# --------------------------------------------
-# Уведомления
-# --------------------------------------------
 def get_notifications(client_id):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -336,14 +305,10 @@ def mark_notification_read(notif_id):
     return True
 
 
-# --- доп. функции для администратора / тренера ---
 
 import MySQLdb.cursors
 from typing import List, Dict
 
-# -------------------------
-# Admin: register new client
-# -------------------------
 def register_client(fio, phone, email, login, password, birthDate=None):
     conn = get_connection()
     cur = conn.cursor()
@@ -357,9 +322,6 @@ def register_client(fio, phone, email, login, password, birthDate=None):
     conn.close()
     return new_id
 
-# -------------------------
-# Admin: create / extend membership
-# -------------------------
 def create_membership(client_id, membershipType, startDate, endDate, visitsTotal, visitsUsed, zones, status, cost, admin_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -391,9 +353,6 @@ def block_membership(membership_id):
     conn.close()
     return True
 
-# -------------------------
-# Admin: get clients list
-# -------------------------
 def get_clients(limit=200):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
@@ -411,9 +370,6 @@ def get_clients(limit=200):
     conn.close()
     return rows
 
-# -------------------------
-# Complaints
-# -------------------------
 def add_complaint(client_id, subject, message):
     conn = get_connection()
     cur = conn.cursor()
@@ -457,9 +413,6 @@ def update_complaint_status(complaint_id, status):
     conn.close()
     return True
 
-# -------------------------
-# Promotions CRUD
-# -------------------------
 def add_promotion(title, description, discount_percent, startDate, endDate, active=1):
     conn = get_connection()
     cur = conn.cursor()
@@ -488,9 +441,6 @@ def set_promotion_active(promo_id, active):
     conn.close()
     return True
 
-# -------------------------
-# Reports (simple sales report: sum of memberships cost by month)
-# -------------------------
 def sales_report_by_month(year):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
@@ -505,9 +455,6 @@ def sales_report_by_month(year):
     conn.close()
     return rows
 
-# -------------------------
-# Attendance: mark presence for group class
-# -------------------------
 def get_enrolled_for_class(class_id):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
@@ -527,7 +474,6 @@ def get_enrolled_for_class(class_id):
 def mark_attendance(class_id, client_id, present):
     conn = get_connection()
     cur = conn.cursor()
-    # upsert into Attendance
     cur.execute("SELECT attendID FROM Attendance WHERE classID=%s AND clientID=%s", (class_id, client_id))
     existing = cur.fetchone()
     if existing:
@@ -538,9 +484,6 @@ def mark_attendance(class_id, client_id, present):
     conn.close()
     return True
 
-# -------------------------
-# Trainer: schedule + journal + recommendations
-# -------------------------
 def get_trainer_schedule(trainer_id):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)

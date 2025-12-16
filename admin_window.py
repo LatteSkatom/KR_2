@@ -1,4 +1,3 @@
-# admin_window.py
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox, QDateEdit, QSpinBox, QTextEdit, QComboBox, QFileDialog, QTabWidget
 from PyQt6.QtWidgets import QInputDialog
 from PyQt6.QtCore import QDate
@@ -20,7 +19,6 @@ class AdminWindow(QWidget):
 
         tabs = QTabWidget()
 
-        # ---- вкладка клиенты ----
         clients_tab = QWidget()
         clients_layout = QVBoxLayout()
         top = QHBoxLayout()
@@ -60,7 +58,6 @@ class AdminWindow(QWidget):
         clients_tab.setLayout(clients_layout)
         tabs.addTab(clients_tab, "Клиенты")
 
-        # ---- вкладка жалоб ----
         complaints_tab = QWidget()
         comp_layout = QVBoxLayout()
         comp_layout.addWidget(QLabel("<h3>Жалобы и пожелания</h3>"))
@@ -79,7 +76,6 @@ class AdminWindow(QWidget):
         complaints_tab.setLayout(comp_layout)
         tabs.addTab(complaints_tab, "Жалобы")
 
-        # ---- вкладка акций ----
         promos_tab = QWidget()
         promos_layout = QVBoxLayout()
         promos_layout.addWidget(QLabel("<h3>Акции и скидки</h3>"))
@@ -121,7 +117,6 @@ class AdminWindow(QWidget):
         self.load_complaints()
         self.load_promos()
 
-    # ---------------- clients ----------------
     def load_clients(self):
         rows = get_clients(1000)
         self.clients_table.setRowCount(0)
@@ -159,7 +154,6 @@ class AdminWindow(QWidget):
         dlg.setLayout(form)
         dlg.show()
 
-    # --------------- membership -------------
     def show_membership_dialog(self):
         dlg = QWidget(); dlg.setWindowTitle("Создать/продлить абонемент")
         f = QFormLayout()
@@ -185,13 +179,11 @@ class AdminWindow(QWidget):
         dlg.show()
 
     def block_selected_membership(self):
-        # пытаемся взять membership по выделенному клиенту в clients_table
         sel = self.clients_table.currentRow()
         if sel < 0:
             QMessageBox.warning(self, "Ошибка", "Выберите клиента")
             return
         client_id = int(self.clients_table.item(sel,0).text())
-        # берём последний абонемент
         import MySQLdb.cursors
         conn = None
         try:
@@ -210,7 +202,6 @@ class AdminWindow(QWidget):
             if conn:
                 conn.close()
 
-    # --------------- complaints -------------
     def load_complaints(self):
         rows = get_complaints()
         self.complaints_table.setRowCount(0)
@@ -233,7 +224,6 @@ class AdminWindow(QWidget):
         QMessageBox.information(self, "Готово", "Жалоба помечена как обработанная")
         self.load_complaints()
 
-    # --------------- promotions -------------
     def add_promo(self):
         title = self.promo_title.text().strip()
         desc = self.promo_desc.text().strip()
@@ -270,7 +260,6 @@ class AdminWindow(QWidget):
         QMessageBox.information(self, "Готово", "Состояние акции изменено")
         self.load_promos()
 
-    # --------------- printing (imitation) -------------
     def print_card(self):
         sel = self.clients_table.currentRow()
         if sel < 0:
@@ -285,7 +274,6 @@ class AdminWindow(QWidget):
             QMessageBox.information(self, "Готово", f"Карта сохранена в {filename}")
 
     def print_receipt(self):
-        # печатает чек на последний абонемент клиента
         sel = self.clients_table.currentRow()
         if sel < 0:
             QMessageBox.warning(self, "Ошибка", "Выберите клиента")
@@ -308,13 +296,11 @@ class AdminWindow(QWidget):
                 f.write(f"Клиент: {m.get('clientID')}\nТип: {m.get('membershipType')}\nЦена: {m.get('cost')}\nПериод: {m.get('startDate')} — {m.get('endDate')}\n")
             QMessageBox.information(self, "Готово", f"Чек сохранён: {filename}")
 
-    # --------------- sales report -------------
     def show_sales_report(self):
         year, ok = QInputDialog.getInt(self, "Год", "Введите год для отчёта", value=2024, min=2000, max=2100)
         if not ok:
             return
         rows = sales_report_by_month(year)
-        # покажем в простом текстовом окне
         txt = f"Отчёт продаж за {year}\n\n"
         for r in rows:
             txt += f"{r['month']}: продано {r['sold_count']}, сумма {r['total_sum']}\n"

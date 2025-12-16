@@ -2,9 +2,6 @@ DROP DATABASE IF EXISTS fitness;
 CREATE DATABASE fitness CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE fitness;
 
--- =========================
--- Пользователи
--- =========================
 CREATE TABLE Users (
     userID INT AUTO_INCREMENT PRIMARY KEY,
     lastName VARCHAR(100) NOT NULL,
@@ -19,9 +16,6 @@ CREATE TABLE Users (
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- =========================
--- Групповые занятия
--- =========================
 CREATE TABLE GroupClasses (
     classID INT AUTO_INCREMENT PRIMARY KEY,
     className VARCHAR(100) NOT NULL,
@@ -34,9 +28,6 @@ CREATE TABLE GroupClasses (
     FOREIGN KEY (trainerID) REFERENCES Users(userID)
 );
 
--- =========================
--- Запись на групповые занятия
--- =========================
 CREATE TABLE Enrollments (
     enrollmentID INT AUTO_INCREMENT PRIMARY KEY,
     classID INT NOT NULL,
@@ -47,9 +38,6 @@ CREATE TABLE Enrollments (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Посещение занятий
--- =========================
 CREATE TABLE Attendance (
     attendID INT AUTO_INCREMENT PRIMARY KEY,
     classID INT NOT NULL,
@@ -60,9 +48,6 @@ CREATE TABLE Attendance (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Абонементы
--- =========================
 CREATE TABLE Memberships (
     membershipID INT AUTO_INCREMENT PRIMARY KEY,
     clientID INT NOT NULL,
@@ -80,9 +65,6 @@ CREATE TABLE Memberships (
     FOREIGN KEY (adminID) REFERENCES Users(userID)
 );
 
--- =========================
--- Заморозка абонементов
--- =========================
 CREATE TABLE MembershipFreezes (
     freezeID INT AUTO_INCREMENT PRIMARY KEY,
     membershipID INT NOT NULL,
@@ -92,9 +74,6 @@ CREATE TABLE MembershipFreezes (
     FOREIGN KEY (membershipID) REFERENCES Memberships(membershipID)
 );
 
--- =========================
--- Персональные тренировки
--- =========================
 CREATE TABLE PersonalTraining (
     trainingID INT AUTO_INCREMENT PRIMARY KEY,
     clientID INT NOT NULL,
@@ -108,9 +87,6 @@ CREATE TABLE PersonalTraining (
     FOREIGN KEY (trainerID) REFERENCES Users(userID)
 );
 
--- =========================
--- История тренировок
--- =========================
 CREATE TABLE TrainingHistory (
     historyID INT AUTO_INCREMENT PRIMARY KEY,
     clientID INT NOT NULL,
@@ -120,9 +96,6 @@ CREATE TABLE TrainingHistory (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Антропометрия
--- =========================
 CREATE TABLE Anthropometrics (
     recordID INT AUTO_INCREMENT PRIMARY KEY,
     clientID INT NOT NULL,
@@ -134,9 +107,6 @@ CREATE TABLE Anthropometrics (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Уведомления
--- =========================
 CREATE TABLE Notifications (
     notifID INT AUTO_INCREMENT PRIMARY KEY,
     clientID INT NOT NULL,
@@ -146,9 +116,6 @@ CREATE TABLE Notifications (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Жалобы и пожелания
--- =========================
 CREATE TABLE Complaints (
     complaintID INT AUTO_INCREMENT PRIMARY KEY,
     clientID INT,
@@ -159,9 +126,6 @@ CREATE TABLE Complaints (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Акции и скидки
--- =========================
 CREATE TABLE Promotions (
     promoID INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255),
@@ -172,9 +136,6 @@ CREATE TABLE Promotions (
     active BOOLEAN DEFAULT 1
 );
 
--- =========================
--- Журнал тренера
--- =========================
 CREATE TABLE TrainingJournal (
     journalID INT AUTO_INCREMENT PRIMARY KEY,
     trainerID INT,
@@ -186,9 +147,6 @@ CREATE TABLE TrainingJournal (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Рекомендации
--- =========================
 CREATE TABLE Recommendations (
     recommendationID INT AUTO_INCREMENT PRIMARY KEY,
     trainerID INT,
@@ -199,9 +157,6 @@ CREATE TABLE Recommendations (
     FOREIGN KEY (clientID) REFERENCES Users(userID)
 );
 
--- =========================
--- Блокировка времени тренера
--- =========================
 CREATE TABLE TrainerBlockedTime (
     blockID INT AUTO_INCREMENT PRIMARY KEY,
     trainerID INT,
@@ -212,9 +167,6 @@ CREATE TABLE TrainerBlockedTime (
     FOREIGN KEY (trainerID) REFERENCES Users(userID)
 );
 
--- =========================
--- Программы тренировок
--- =========================
 CREATE TABLE TrainingPrograms (
     programID INT AUTO_INCREMENT PRIMARY KEY,
     trainerID INT,
@@ -224,9 +176,6 @@ CREATE TABLE TrainingPrograms (
     FOREIGN KEY (trainerID) REFERENCES Users(userID)
 );
 
--- =========================
--- Упражнения
--- =========================
 CREATE TABLE Exercises (
     exerciseID INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255),
@@ -234,9 +183,6 @@ CREATE TABLE Exercises (
     muscleGroup VARCHAR(100)
 );
 
--- =========================
--- Упражнения в программах
--- =========================
 CREATE TABLE ProgramExercises (
     id INT AUTO_INCREMENT PRIMARY KEY,
     programID INT,
@@ -250,9 +196,6 @@ CREATE TABLE ProgramExercises (
 
 USE fitness;
 
--- =========================
--- Пользователи
--- =========================
 INSERT INTO Users (lastName, firstName, middleName, phone, email, login, password, userType, birthDate) VALUES
 ('Иванов', 'Иван', 'Иванович', '79001112233', 'ivan@mail.ru', 'client1', '123', 'Клиент', '1998-05-10'),
 ('Петров', 'Пётр', 'Петрович', '79002223344', 'petr@mail.ru', 'client2', '123', 'Клиент', '1995-03-22'),
@@ -263,18 +206,12 @@ INSERT INTO Users (lastName, firstName, middleName, phone, email, login, passwor
 
 ('Директор', 'Директор', NULL, '79005556677', 'director@mail.ru', 'director', '123', 'Директор', '1980-09-09');
 
--- =========================
--- Абонементы
--- =========================
 INSERT INTO Memberships
 (clientID, membershipType, startDate, endDate, visitsTotal, visitsUsed, zones, membershipStatus, cost, adminID)
 VALUES
 (1, 'Месячный', '2025-09-01', '2025-09-30', 12, 3, 'Все зоны', 'Активен', 3000, 4),
 (2, 'Годовой', '2025-01-01', '2025-12-31', 300, 120, 'Все зоны + SPA', 'Активен', 25000, 4);
 
--- =========================
--- Групповые занятия
--- =========================
 INSERT INTO GroupClasses
 (className, classDate, startTime, endTime, trainerID, hall, maxParticipants)
 VALUES
@@ -282,34 +219,22 @@ VALUES
 ('Силовая тренировка', '2025-09-15', '12:00', '13:00', 3, 'Зал 2', 20),
 ('Кардио', '2025-09-16', '18:00', '19:00', 3, 'Зал 1', 25);
 
--- =========================
--- Записи на групповые занятия
--- =========================
 INSERT INTO Enrollments (classID, clientID) VALUES
 (1, 1),
 (1, 2),
 (2, 1);
 
--- =========================
--- Посещение
--- =========================
 INSERT INTO Attendance (classID, clientID, present) VALUES
 (1, 1, 1),
 (1, 2, 0),
 (2, 1, 1);
 
--- =========================
--- Персональные тренировки
--- =========================
 INSERT INTO PersonalTraining
 (clientID, trainerID, trainingDate, startTime, endTime, notes)
 VALUES
 (1, 3, '2025-09-14', '15:00', '16:00', 'Работа на выносливость'),
 (2, 3, '2025-09-16', '17:00', '18:00', 'Силовая программа');
 
--- =========================
--- История тренировок
--- =========================
 INSERT INTO TrainingHistory
 (clientID, trainingType, date, description)
 VALUES
@@ -317,9 +242,6 @@ VALUES
 (1, 'Персональная', '2025-09-12', 'Силовая с тренером'),
 (2, 'Групповая', '2025-09-11', 'Кардио');
 
--- =========================
--- Антропометрия
--- =========================
 INSERT INTO Anthropometrics
 (clientID, recordDate, weight, height, bodyFat, notes)
 VALUES
@@ -327,9 +249,6 @@ VALUES
 (1, '2025-09-15', 78.9, 180, 17.5, 'Есть прогресс'),
 (2, '2025-09-01', 65.0, 170, 22.0, 'Старт');
 
--- =========================
--- Уведомления
--- =========================
 INSERT INTO Notifications
 (clientID, message)
 VALUES
@@ -337,62 +256,41 @@ VALUES
 (1, 'Вы записаны на групповое занятие Йога'),
 (2, 'Абонемент активен до 31.12.2025');
 
--- =========================
--- Жалобы
--- =========================
 INSERT INTO Complaints
 (clientID, subject, message)
 VALUES
 (1, 'Температура в зале', 'Слишком холодно в зале 1'),
 (2, 'Оборудование', 'Не работает беговая дорожка');
 
--- =========================
--- Акции
--- =========================
 INSERT INTO Promotions
 (title, description, discount_percent, startDate, endDate, active)
 VALUES
 ('Осенняя скидка', 'Скидка на все абонементы', 15, '2025-09-01', '2025-09-30', 1),
 ('Студентам', 'Скидка по студенческому', 20, '2025-01-01', '2025-12-31', 1);
 
--- =========================
--- Журнал тренера
--- =========================
 INSERT INTO TrainingJournal
 (trainerID, clientID, journalDate, notes, metrics)
 VALUES
 (3, 1, '2025-09-12', 'Хорошая техника', 'Вес: 80 → 79'),
 (3, 2, '2025-09-11', 'Нужно улучшить выносливость', 'Пульс высокий');
 
--- =========================
--- Рекомендации
--- =========================
 INSERT INTO Recommendations
 (trainerID, clientID, text)
 VALUES
 (3, 1, 'Добавить кардио 2 раза в неделю'),
 (3, 2, 'Увеличить растяжку после тренировки');
 
--- =========================
--- Блокировка времени тренера
--- =========================
 INSERT INTO TrainerBlockedTime
 (trainerID, blockDate, startTime, endTime, reason)
 VALUES
 (3, '2025-09-20', '14:00', '16:00', 'Личные дела');
 
--- =========================
--- Программы тренировок
--- =========================
 INSERT INTO TrainingPrograms
 (trainerID, title, description)
 VALUES
 (3, 'Похудение', 'Программа для снижения веса'),
 (3, 'Набор массы', 'Силовая программа');
 
--- =========================
--- Упражнения
--- =========================
 INSERT INTO Exercises
 (name, description, muscleGroup)
 VALUES
@@ -400,9 +298,6 @@ VALUES
 ('Жим лёжа', 'Грудные мышцы', 'Грудь'),
 ('Тяга блока', 'Спина', 'Спина');
 
--- =========================
--- Упражнения в программах
--- =========================
 INSERT INTO ProgramExercises
 (programID, exerciseID, sets, reps)
 VALUES

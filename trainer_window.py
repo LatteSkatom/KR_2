@@ -1,4 +1,3 @@
-# trainer_window.py
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QPushButton, QHBoxLayout, QMessageBox, QComboBox, QTextEdit, QDateEdit, QTimeEdit, QFormLayout, QLineEdit, QTabWidget
 from PyQt6.QtCore import QDate
 import MySQLdb.cursors
@@ -16,7 +15,6 @@ class TrainerWindow(QWidget):
 
         tabs = QTabWidget()
 
-        # расписание
         schedule_tab = QWidget()
         schedule_layout = QVBoxLayout()
         schedule_layout.addWidget(QLabel("<b>Моё расписание</b>"))
@@ -48,7 +46,6 @@ class TrainerWindow(QWidget):
         schedule_tab.setLayout(schedule_layout)
         tabs.addTab(schedule_tab, "Расписание")
 
-        # журнал тренера / рекомендации
         journal_tab = QWidget()
         journal_layout = QVBoxLayout()
         journal_layout.addWidget(QLabel("<b>Журнал персональных тренировок / рекомендации</b>"))
@@ -81,7 +78,6 @@ class TrainerWindow(QWidget):
         journal_tab.setLayout(journal_layout)
         tabs.addTab(journal_tab, "Журнал")
 
-        # блокировка времени
         block_tab = QWidget()
         block_layout = QVBoxLayout()
         block_layout.addWidget(QLabel("<b>Блокировка времени</b>"))
@@ -131,7 +127,6 @@ class TrainerWindow(QWidget):
             self.enrolled_table.setItem(row,0, QTableWidgetItem(str(r.get('enrollmentID'))))
             self.enrolled_table.setItem(row,1, QTableWidgetItem(str(r.get('clientID'))))
             self.enrolled_table.setItem(row,2, QTableWidgetItem(r.get('fio') or ''))
-            # check attendance status
             self.enrolled_table.setItem(row,3, QTableWidgetItem("—"))
 
     def mark_selected_present(self):

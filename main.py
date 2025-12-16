@@ -1,4 +1,3 @@
-# main.py
 import sys
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from login_window import LoginWindow
