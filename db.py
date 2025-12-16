@@ -6,25 +6,21 @@ _FIO_MODE = None
 
 
 def _detect_fio_mode():
+    conn = get_connection()
+    cur = conn.cursor()
     try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT COLUMN_NAME
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='Users'
-            """
-        )
-        cols = {row[0] for row in cur.fetchall()}
-        conn.close()
-        if {"lastName", "firstName", "middleName"}.issubset(cols):
-            return "split"
-        if "fio" in cols:
-            return "single"
+        cur.execute("SELECT lastName, firstName, middleName FROM Users LIMIT 1")
+        cur.fetchone()
+        return "split"
     except Exception:
-        pass
-    return "split"
+        try:
+            cur.execute("SELECT fio FROM Users LIMIT 1")
+            cur.fetchone()
+            return "single"
+        except Exception:
+            return "split"
+    finally:
+        conn.close()
 
 
 def _get_fio_mode():

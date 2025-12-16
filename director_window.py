@@ -227,9 +227,15 @@ class DirectorWindow(QWidget):
         self.report_text.setText("\n".join(lines))
 
     def hire(self):
-        fio, ok = QInputDialog.getText(self, "Найм", "ФИО:")
-        if not ok or not fio.strip():
+        last, ok = QInputDialog.getText(self, "Найм", "Фамилия:")
+        if not ok or not last.strip():
             return
+
+        first, ok = QInputDialog.getText(self, "Найм", "Имя:")
+        if not ok or not first.strip():
+            return
+
+        middle, _ = QInputDialog.getText(self, "Найм", "Отчество (при наличии):")
 
         phone, _ = QInputDialog.getText(self, "Найм", "Телефон:")
         email, _ = QInputDialog.getText(self, "Найм", "Email:")
@@ -241,11 +247,12 @@ class DirectorWindow(QWidget):
         if not ok:
             return
 
-        clean_login = login or fio.strip().replace(' ', '_').lower()
+        fio = " ".join([part for part in [last.strip(), first.strip(), (middle or "").strip()] if part])
+        clean_login = login or "{}_{}".format(last.strip(), first.strip()).lower()
         clean_pass = password or "123"
 
         try:
-            hire_staff(fio.strip(), phone or None, email or None, clean_login, clean_pass, role)
+            hire_staff(fio, phone or None, email or None, clean_login, clean_pass, role)
         except Exception as exc:
             QMessageBox.critical(self, "Ошибка", f"Не удалось добавить сотрудника: {exc}")
             return
