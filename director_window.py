@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QTabWidget,
     QTableWidget, QTableWidgetItem, QPushButton,
-    QHBoxLayout, QMessageBox, QTextEdit, QInputDialog
+    QHBoxLayout, QMessageBox, QTextEdit, QInputDialog,
+    QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox
 )
 
 from db import (
@@ -227,32 +228,27 @@ class DirectorWindow(QWidget):
         self.report_text.setText("\n".join(lines))
 
     def hire(self):
-        last, ok = QInputDialog.getText(self, "Найм", "Фамилия:")
-        if not ok or not last.strip():
+        dialog = HireDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
-        first, ok = QInputDialog.getText(self, "Найм", "Имя:")
-        if not ok or not first.strip():
-            return
-
-        middle, _ = QInputDialog.getText(self, "Найм", "Отчество (при наличии):")
-
-        phone, _ = QInputDialog.getText(self, "Найм", "Телефон:")
-        email, _ = QInputDialog.getText(self, "Найм", "Email:")
-        login, _ = QInputDialog.getText(self, "Найм", "Логин:")
-        password, _ = QInputDialog.getText(self, "Найм", "Пароль:")
-
-        roles = ["Тренер", "Администратор"]
-        role, ok = QInputDialog.getItem(self, "Найм", "Роль:", roles, editable=False)
-        if not ok:
-            return
-
-        fio = " ".join([part for part in [last.strip(), first.strip(), (middle or "").strip()] if part])
-        clean_login = login or "{}_{}".format(last.strip(), first.strip()).lower()
-        clean_pass = password or "123"
+        data = dialog.get_data()
+        fio = " ".join([
+            part for part in [data["last"], data["first"], data["middle"]]
+            if part
+        ])
+        clean_login = data["login"] or "{}_{}".format(data["last"], data["first"]).lower()
+        clean_pass = data["password"] or "123"
 
         try:
-            hire_staff(fio, phone or None, email or None, clean_login, clean_pass, role)
+            hire_staff(
+                fio,
+                data["phone"] or None,
+                data["email"] or None,
+                clean_login,
+                clean_pass,
+                data["role"],
+            )
         except Exception as exc:
             QMessageBox.critical(self, "Ошибка", f"Не удалось добавить сотрудника: {exc}")
             return
@@ -277,3 +273,61 @@ class DirectorWindow(QWidget):
             self.load_staff()
         else:
             QMessageBox.warning(self, "Ошибка", "Не удалось удалить сотрудника")
+
+
+class HireDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Найм сотрудника")
+
+        form = QFormLayout()
+
+        self.last_input = QLineEdit()
+        self.first_input = QLineEdit()
+        self.middle_input = QLineEdit()
+        self.phone_input = QLineEdit()
+        self.email_input = QLineEdit()
+        self.login_input = QLineEdit()
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+
+        self.role_input = QComboBox()
+        self.role_input.addItems(["Тренер", "Администратор"])
+
+        form.addRow("Фамилия*", self.last_input)
+        form.addRow("Имя*", self.first_input)
+        form.addRow("Отчество", self.middle_input)
+        form.addRow("Телефон", self.phone_input)
+        form.addRow("Email", self.email_input)
+        form.addRow("Логин", self.login_input)
+        form.addRow("Пароль", self.password_input)
+        form.addRow("Роль", self.role_input)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def _on_accept(self):
+        if not self.last_input.text().strip() or not self.first_input.text().strip():
+            QMessageBox.warning(self, "Ошибка", "Фамилия и имя обязательны")
+            return
+        self.accept()
+
+    def get_data(self):
+        return {
+            "last": self.last_input.text().strip(),
+            "first": self.first_input.text().strip(),
+            "middle": self.middle_input.text().strip(),
+            "phone": self.phone_input.text().strip(),
+            "email": self.email_input.text().strip(),
+            "login": self.login_input.text().strip(),
+            "password": self.password_input.text(),
+            "role": self.role_input.currentText(),
+        }
