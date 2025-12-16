@@ -27,13 +27,32 @@ def _detect_fio_mode():
     return "split"
 
 
-def _fio_alias(column_prefix: str = "u"):
+def _get_fio_mode():
     global _FIO_MODE
     if _FIO_MODE is None:
         _FIO_MODE = _detect_fio_mode()
-    if _FIO_MODE == "single":
+    return _FIO_MODE
+
+
+def _fio_alias(column_prefix: str = "u"):
+    if _get_fio_mode() == "single":
         return f"{column_prefix}.fio"
     return f"CONCAT_WS(' ', {column_prefix}.lastName, {column_prefix}.firstName, {column_prefix}.middleName)"
+
+
+def _fio_order_clause(prefix: str = ""):
+    column_prefix = f"{prefix}." if prefix else ""
+    if _get_fio_mode() == "single":
+        return f"{column_prefix}fio"
+    return f"{column_prefix}lastName, {column_prefix}firstName"
+
+
+def _name_columns_and_values(fio: str):
+    mode = _get_fio_mode()
+    if mode == "single":
+        return "fio", (fio.strip(),)
+    last, first, middle = split_fio(fio)
+    return "lastName, firstName, middleName", (last, first, middle)
 
 
 def split_fio(fio: str):
@@ -359,11 +378,15 @@ from typing import List, Dict
 def register_client(fio, phone, email, login, password, birthDate=None):
     conn = get_connection()
     cur = conn.cursor()
-    last, first, middle = split_fio(fio)
-    cur.execute("""
-        INSERT INTO Users (lastName, firstName, middleName, phone, email, login, password, userType, birthDate)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,'Клиент',%s)
-    """, (last, first, middle, phone, email, login, password, birthDate))
+    name_cols, name_values = _name_columns_and_values(fio)
+    placeholders = ",".join(["%s"] * len(name_values))
+    cur.execute(
+        f"""
+        INSERT INTO Users ({name_cols}, phone, email, login, password, userType, birthDate)
+        VALUES ({placeholders}, %s,%s,%s,%s,'Клиент',%s)
+    """,
+        (*name_values, phone, email, login, password, birthDate),
+    )
     conn.commit()
     new_id = cur.lastrowid
     conn.close()
@@ -403,17 +426,29 @@ def block_membership(membership_id):
 def get_clients(limit=200):
     conn = get_connection()
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute(
-        f"""
-        SELECT userID, lastName, firstName, middleName, phone, email, login, userType, birthDate,
-               {_fio_alias()} AS fio
-        FROM Users u
-        ORDER BY lastName, firstName
-        LIMIT %s
-        """,
-        (limit,),
-    )
-    rows = cur.fetchall()
+    if _get_fio_mode() == "single":
+        cur.execute(
+            """
+            SELECT userID, fio AS fio, phone, email, login, userType, birthDate
+            FROM Users u
+            ORDER BY fio
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+    else:
+        cur.execute(
+            f"""
+            SELECT userID, lastName, firstName, middleName, phone, email, login, userType, birthDate,
+                   {_fio_alias()} AS fio
+            FROM Users u
+            ORDER BY {_fio_order_clause('u')}
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
     conn.close()
     return rows
 
@@ -660,15 +695,40 @@ def director_finance_stats():
 def director_staff_list():
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
-    cur.execute(
-        f"""
-        SELECT userID, {_fio_alias()} AS fio, userType, phone
-        FROM Users
-        WHERE userType IN ('Тренер','Администратор')
-        ORDER BY lastName, firstName
-    """
-    )
-    rows = cur.fetchall()
+    if _get_fio_mode() == "single":
+        cur.execute(
+            """
+            SELECT userID, fio, userType, phone
+            FROM Users
+            WHERE userType IN ('Тренер','Администратор')
+            ORDER BY fio
+        """
+        )
+        raw_rows = cur.fetchall()
+        rows = []
+        for r in raw_rows:
+            last, first, middle = split_fio(r.get("fio", ""))
+            rows.append(
+                {
+                    "userID": r.get("userID"),
+                    "lastName": last,
+                    "firstName": first,
+                    "middleName": middle,
+                    "fio": r.get("fio", "").strip(),
+                    "userType": r.get("userType"),
+                    "phone": r.get("phone"),
+                }
+            )
+    else:
+        cur.execute(
+            f"""
+            SELECT userID, lastName, firstName, middleName, {_fio_alias()} AS fio, userType, phone
+            FROM Users
+            WHERE userType IN ('Тренер','Администратор')
+            ORDER BY {_fio_order_clause()}
+        """
+        )
+        rows = cur.fetchall()
     conn.close()
     return rows
 
@@ -735,11 +795,15 @@ def strategic_report():
 def hire_staff(fio, phone, email, login, password, userType, birthDate=None):
     conn = get_connection()
     cur = conn.cursor()
-    last, first, middle = split_fio(fio)
-    cur.execute("""
-        INSERT INTO Users (lastName, firstName, middleName, phone, email, login, password, userType, birthDate)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """, (last, first, middle, phone, email, login, password, userType, birthDate))
+    name_cols, name_values = _name_columns_and_values(fio)
+    placeholders = ",".join(["%s"] * len(name_values))
+    cur.execute(
+        f"""
+        INSERT INTO Users ({name_cols}, phone, email, login, password, userType, birthDate)
+        VALUES ({placeholders}, %s,%s,%s,%s,%s,%s)
+    """,
+        (*name_values, phone, email, login, password, userType, birthDate),
+    )
     conn.commit()
     staff_id = cur.lastrowid
     conn.close()

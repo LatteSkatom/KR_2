@@ -100,8 +100,8 @@ class DirectorWindow(QWidget):
     def build_staff_tab(self):
         w = QWidget()
         v = QVBoxLayout(w)
-        self.staff_table = QTableWidget(0, 4)
-        self.staff_table.setHorizontalHeaderLabels(["ID", "ФИО", "Роль", "Телефон"])
+        self.staff_table = QTableWidget(0, 6)
+        self.staff_table.setHorizontalHeaderLabels(["ID", "Фамилия", "Имя", "Отчество", "Роль", "Телефон"])
         self.staff_table.setColumnHidden(0, True)
         v.addWidget(self.staff_table)
 
@@ -189,9 +189,11 @@ class DirectorWindow(QWidget):
             r = self.staff_table.rowCount()
             self.staff_table.insertRow(r)
             self.staff_table.setItem(r, 0, QTableWidgetItem(str(rdata['userID'])))
-            self.staff_table.setItem(r, 1, QTableWidgetItem(rdata['fio']))
-            self.staff_table.setItem(r, 2, QTableWidgetItem(rdata['userType']))
-            self.staff_table.setItem(r, 3, QTableWidgetItem(rdata.get('phone', '')))
+            self.staff_table.setItem(r, 1, QTableWidgetItem(rdata.get('lastName', '')))
+            self.staff_table.setItem(r, 2, QTableWidgetItem(rdata.get('firstName', '')))
+            self.staff_table.setItem(r, 3, QTableWidgetItem(rdata.get('middleName', '')))
+            self.staff_table.setItem(r, 4, QTableWidgetItem(rdata['userType']))
+            self.staff_table.setItem(r, 5, QTableWidgetItem(rdata.get('phone', '')))
 
 
     def change_price(self):
