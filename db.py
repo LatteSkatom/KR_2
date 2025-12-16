@@ -9,16 +9,17 @@ def _detect_fio_mode():
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT lastName, firstName, middleName FROM Users LIMIT 1")
-        cur.fetchone()
-        return "split"
-    except Exception:
-        try:
-            cur.execute("SELECT fio FROM Users LIMIT 1")
-            cur.fetchone()
-            return "single"
-        except Exception:
+        cur.execute("SHOW COLUMNS FROM Users")
+        columns = {row[0] for row in cur.fetchall()}
+
+        has_split = {"lastName", "firstName"}.issubset(columns)
+        has_single = "fio" in columns
+
+        if has_split:
             return "split"
+        if has_single:
+            return "single"
+        return "split"
     finally:
         conn.close()
 
