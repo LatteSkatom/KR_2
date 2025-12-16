@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QFormLayout, QTextEdit, QComboBox, QDateEdit, QTimeEdit
 )
 from PyQt6.QtCore import QDate
+import datetime
 
 from db import (
     get_schedule,
@@ -20,7 +21,9 @@ from db import (
     get_anthropometrics,
     get_notifications,
     mark_notification_read,
-    get_connection
+    get_connection,
+    get_training_journal_for_client,
+    get_recommendations_for_client,
 )
 
 
@@ -29,12 +32,13 @@ class ClientWindow(QWidget):
         super().__init__()
         self.user = user
         self.client_id = user.get('userID')
+        self.current_membership = None
 
         self.setWindowTitle(f"Клиент: {user.get('fio', '')}")
         self.resize(900, 600)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"<h2>Добро пожаловать, {user.get('fio','').split()[0]}!</h2>"))
+
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self.build_schedule_tab(), "Расписание")
@@ -42,6 +46,7 @@ class ClientWindow(QWidget):
         self.tabs.addTab(self.build_personal_training_tab(), "Персональные тренировки")
         self.tabs.addTab(self.build_visits_tab(), "Абонемент")
         self.tabs.addTab(self.build_history_tab(), "История тренировок")
+        self.tabs.addTab(self.build_trainer_journal_tab(), "Записи тренера")
         self.tabs.addTab(self.build_profile_tab(), "Антропометрия")
         self.tabs.addTab(self.build_notifications_tab(), "Уведомления")
 
@@ -50,7 +55,6 @@ class ClientWindow(QWidget):
 
         self.refresh_all()
 
-    # ---------- helpers ----------
 
     def refresh_all(self):
         for fn in (
@@ -58,6 +62,7 @@ class ClientWindow(QWidget):
             self.refresh_my_enrollments,
             self.refresh_membership,
             self.refresh_history,
+            self.refresh_trainer_journal,
             self.refresh_anthro,
             self.refresh_notifications,
         ):
@@ -70,7 +75,41 @@ class ClientWindow(QWidget):
         item = table.item(row, col)
         return item.text() if item else None
 
-    # ---------- tabs ----------
+    def membership_allows_date(self, date_str):
+        m = getattr(self, 'current_membership', None) or get_membership_for_client(self.client_id)
+        if not m:
+            QMessageBox.warning(self, "Абонемент", "У вас нет активного абонемента")
+            return False
+
+        status = m.get('membershipStatus')
+        if status != 'Активен':
+            QMessageBox.warning(self, "Абонемент", "Абонемент заблокирован или неактивен")
+            return False
+
+        def parse_date(val):
+            if isinstance(val, datetime.date):
+                return val
+            try:
+                return datetime.date.fromisoformat(str(val))
+            except Exception:
+                return None
+
+        target = parse_date(date_str)
+        start = parse_date(m.get('startDate'))
+        end = parse_date(m.get('endDate'))
+
+        if not (target and start and end and start <= target <= end):
+            QMessageBox.warning(self, "Абонемент", "Дата вне периода действия абонемента")
+            return False
+
+        visits_total = m.get('visitsTotal')
+        visits_used = m.get('visitsUsed') or 0
+        if visits_total not in (None, 0) and visits_used >= visits_total:
+            QMessageBox.warning(self, "Абонемент", "Посещения по абонементу исчерпаны")
+            return False
+
+        return True
+
 
     def build_schedule_tab(self):
         w = QWidget()
@@ -143,6 +182,20 @@ class ClientWindow(QWidget):
         QVBoxLayout(w).addWidget(self.history_table)
         return w
 
+    def build_trainer_journal_tab(self):
+        w = QWidget()
+        v = QVBoxLayout(w)
+
+        self.journal_table = QTableWidget(0, 4)
+        self.journal_table.setHorizontalHeaderLabels(['Дата', 'Тренер', 'Заметки', 'Показатели'])
+        v.addWidget(self.journal_table)
+
+        self.rec_table = QTableWidget(0, 3)
+        self.rec_table.setHorizontalHeaderLabels(['Дата', 'Тренер', 'Рекомендация'])
+        v.addWidget(self.rec_table)
+
+        return w
+
     def build_profile_tab(self):
         w = QWidget()
         self.anthro_table = QTableWidget(0, 5)
@@ -166,7 +219,6 @@ class ClientWindow(QWidget):
         v.addWidget(b)
         return w
 
-    # ---------- logic ----------
 
     def refresh_schedule(self):
         self.schedule_table.setRowCount(0)
@@ -183,6 +235,9 @@ class ClientWindow(QWidget):
         if row < 0:
             return
         cid = self.text(self.schedule_table, row, 0)
+        class_date = self.text(self.schedule_table, row, 3)
+        if class_date and not self.membership_allows_date(class_date):
+            return
         if enroll_client_in_class(self.client_id, int(cid)):
             QMessageBox.information(self, "OK", "Вы записаны")
             self.refresh_my_enrollments()
@@ -222,7 +277,12 @@ class ClientWindow(QWidget):
         import MySQLdb.cursors
         conn = get_connection()
         cur = conn.cursor(MySQLdb.cursors.DictCursor)
-        cur.execute("SELECT userID, fio FROM Users WHERE userType='Тренер'")
+        cur.execute("""
+            SELECT userID, CONCAT_WS(' ', lastName, firstName, middleName) AS fio
+            FROM Users
+            WHERE userType='Тренер'
+            ORDER BY lastName, firstName
+        """)
         self.trainer_combo.clear()
         for r in cur.fetchall():
             self.trainer_combo.addItem(r['fio'], r['userID'])
@@ -233,10 +293,14 @@ class ClientWindow(QWidget):
         start = self.pt_start.time()
         end = start.addSecs(3600)
 
+        date_str = self.pt_date.date().toString("yyyy-MM-dd")
+        if not self.membership_allows_date(date_str):
+            return
+
         ok = book_personal_training(
             self.client_id,
             trainer_id,
-            self.pt_date.date().toString("yyyy-MM-dd"),
+            date_str,
             start.toString("HH:mm:ss"),
             end.toString("HH:mm:ss"),
             self.pt_notes.toPlainText()
@@ -250,6 +314,7 @@ class ClientWindow(QWidget):
 
     def refresh_membership(self):
         m = get_membership_for_client(self.client_id)
+        self.current_membership = m
         self.membership_table.setRowCount(0)
         if not m:
             self.membership_table.setRowCount(1)
@@ -278,6 +343,21 @@ class ClientWindow(QWidget):
             self.history_table.insertRow(row)
             for i, k in enumerate(['trainingType', 'date', 'description']):
                 self.history_table.setItem(row, i, QTableWidgetItem(str(r.get(k, ''))))
+
+    def refresh_trainer_journal(self):
+        self.journal_table.setRowCount(0)
+        for r in get_training_journal_for_client(self.client_id):
+            row = self.journal_table.rowCount()
+            self.journal_table.insertRow(row)
+            for i, k in enumerate(['journalDate', 'trainerName', 'notes', 'metrics']):
+                self.journal_table.setItem(row, i, QTableWidgetItem(str(r.get(k, ''))))
+
+        self.rec_table.setRowCount(0)
+        for r in get_recommendations_for_client(self.client_id):
+            row = self.rec_table.rowCount()
+            self.rec_table.insertRow(row)
+            for i, k in enumerate(['createdAt', 'trainerName', 'text']):
+                self.rec_table.setItem(row, i, QTableWidgetItem(str(r.get(k, ''))))
 
     def refresh_anthro(self):
         self.anthro_table.setRowCount(0)

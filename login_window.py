@@ -1,4 +1,3 @@
-# login_window.py
 from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox
 from PyQt6.QtCore import Qt
 from db import check_user
@@ -34,6 +33,5 @@ class LoginWindow(QWidget):
         if not user:
             QMessageBox.warning(self, "Ошибка", "Неверный логин или пароль")
             return
-        # вызываем callback с данными пользователя
         self.on_login_success(user)
         self.close()
