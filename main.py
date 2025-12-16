@@ -24,6 +24,7 @@ def on_login(user):
     w.show()
     windows.append(w)
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     windows = []
