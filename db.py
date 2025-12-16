@@ -727,10 +727,10 @@ def director_staff_list():
     else:
         cur.execute(
             f"""
-            SELECT userID, lastName, firstName, middleName, {_fio_alias()} AS fio, userType, phone
-            FROM Users
-            WHERE userType IN ('Тренер','Администратор')
-            ORDER BY {_fio_order_clause()}
+            SELECT u.userID, u.lastName, u.firstName, u.middleName, {_fio_alias('u')} AS fio, u.userType, u.phone
+            FROM Users u
+            WHERE u.userType IN ('Тренер','Администратор')
+            ORDER BY {_fio_order_clause('u')}
         """
         )
         rows = cur.fetchall()
