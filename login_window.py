@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QFormLayout
 from PyQt6.QtCore import Qt
 from db import check_user
 
@@ -7,20 +7,25 @@ class LoginWindow(QWidget):
         super().__init__()
         self.on_login_success = on_login_success
         self.setWindowTitle("Авторизация — Фитнес-клуб")
-        self.resize(350,200)
+        self.resize(360, 220)
         layout = QVBoxLayout()
-        self.lbl = QLabel("<h2>Вход</h2>")
+        layout.setSpacing(12)
+        self.lbl = QLabel("Вход в систему")
         layout.addWidget(self.lbl, alignment=Qt.AlignmentFlag.AlignCenter)
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.login_edit = QLineEdit()
-        self.login_edit.setPlaceholderText("Логин")
-        layout.addWidget(self.login_edit)
+        self.login_edit.setPlaceholderText("Введите логин")
+        form.addRow("Логин:", self.login_edit)
         self.pass_edit = QLineEdit()
-        self.pass_edit.setPlaceholderText("Пароль")
+        self.pass_edit.setPlaceholderText("Введите пароль")
         self.pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        layout.addWidget(self.pass_edit)
+        form.addRow("Пароль:", self.pass_edit)
+        layout.addLayout(form)
         self.btn_login = QPushButton("Войти")
         self.btn_login.clicked.connect(self.try_login)
         layout.addWidget(self.btn_login)
+        layout.addStretch()
         self.setLayout(layout)
 
     def try_login(self):

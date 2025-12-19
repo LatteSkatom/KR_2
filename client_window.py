@@ -4,7 +4,8 @@ faulthandler.enable()
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
     QTableWidget, QTableWidgetItem, QTabWidget, QMessageBox,
-    QFormLayout, QTextEdit, QComboBox, QDateEdit, QTimeEdit
+    QFormLayout, QTextEdit, QComboBox, QDateEdit, QTimeEdit,
+    QGroupBox, QHeaderView
 )
 from PyQt6.QtCore import QDate
 import datetime
@@ -38,7 +39,9 @@ class ClientWindow(QWidget):
         self.resize(900, 600)
 
         layout = QVBoxLayout()
-
+        layout.setSpacing(12)
+        title = QLabel(f"Клиентский кабинет — {user.get('fio', '')}")
+        layout.addWidget(title)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self.build_schedule_tab(), "Расписание")
@@ -74,6 +77,16 @@ class ClientWindow(QWidget):
     def text(self, table, row, col):
         item = table.item(row, col)
         return item.text() if item else None
+
+    def _configure_table(self, table, stretch_last=True):
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setAlternatingRowColors(True)
+        table.verticalHeader().setVisible(False)
+        header = table.horizontalHeader()
+        header.setStretchLastSection(stretch_last)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
     def membership_allows_date(self, date_str):
         m = getattr(self, 'current_membership', None) or get_membership_for_client(self.client_id)
@@ -114,56 +127,68 @@ class ClientWindow(QWidget):
     def build_schedule_tab(self):
         w = QWidget()
         v = QVBoxLayout(w)
-
         self.schedule_table = QTableWidget(0, 7)
         self.schedule_table.setHorizontalHeaderLabels(
             ['ID', 'Занятие', 'Тренер', 'Дата', 'Начало', 'Конец', 'Зал']
         )
         self.schedule_table.setColumnHidden(0, True)
+        self._configure_table(self.schedule_table, stretch_last=False)
         v.addWidget(self.schedule_table)
 
+        actions = QHBoxLayout()
+        actions.addStretch()
         b = QPushButton("Записаться")
         b.clicked.connect(self.enroll_selected)
-        v.addWidget(b)
+        actions.addWidget(b)
+        v.addLayout(actions)
         return w
 
     def build_my_classes_tab(self):
         w = QWidget()
         v = QVBoxLayout(w)
-
         self.my_classes_table = QTableWidget(0, 6)
         self.my_classes_table.setHorizontalHeaderLabels(
             ['ID', 'Занятие', 'Дата', 'Время', 'Статус', 'Тип']
         )
         self.my_classes_table.setColumnHidden(0, True)
         self.my_classes_table.setColumnHidden(5, True)
+        self._configure_table(self.my_classes_table, stretch_last=False)
         v.addWidget(self.my_classes_table)
 
+        actions = QHBoxLayout()
+        actions.addStretch()
         b = QPushButton("Отменить запись")
         b.clicked.connect(self.cancel_selected)
-        v.addWidget(b)
+        actions.addWidget(b)
+        v.addLayout(actions)
         return w
 
     def build_personal_training_tab(self):
         w = QWidget()
-        f = QFormLayout(w)
+        v = QVBoxLayout(w)
+        group = QGroupBox("Запись на персональную тренировку")
+        f = QFormLayout(group)
 
         self.trainer_combo = QComboBox()
         f.addRow("Тренер:", self.trainer_combo)
 
         self.pt_date = QDateEdit(QDate.currentDate())
+        self.pt_date.setCalendarPopup(True)
         f.addRow("Дата:", self.pt_date)
 
         self.pt_start = QTimeEdit()
         f.addRow("Начало:", self.pt_start)
 
         self.pt_notes = QTextEdit()
+        self.pt_notes.setPlaceholderText("Пожелания к тренировке")
         f.addRow("Примечание:", self.pt_notes)
 
         b = QPushButton("Забронировать")
         b.clicked.connect(self.book_pt)
         f.addRow(b)
 
+        v.addWidget(group)
+        v.addStretch()
         self.refresh_trainers()
         return w
 
@@ -171,7 +196,7 @@ class ClientWindow(QWidget):
         w = QWidget()
         self.membership_table = QTableWidget(0, 2)
         self.membership_table.setHorizontalHeaderLabels(["Параметр", "Значение"])
-        self.membership_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._configure_table(self.membership_table)
         QVBoxLayout(w).addWidget(self.membership_table)
         return w
 
@@ -179,6 +204,7 @@ class ClientWindow(QWidget):
         w = QWidget()
         self.history_table = QTableWidget(0, 3)
         self.history_table.setHorizontalHeaderLabels(['Тип', 'Дата', 'Описание'])
+        self._configure_table(self.history_table)
         QVBoxLayout(w).addWidget(self.history_table)
         return w
 
@@ -188,10 +214,12 @@ class ClientWindow(QWidget):
 
         self.journal_table = QTableWidget(0, 4)
         self.journal_table.setHorizontalHeaderLabels(['Дата', 'Тренер', 'Заметки', 'Показатели'])
+        self._configure_table(self.journal_table)
         v.addWidget(self.journal_table)
 
         self.rec_table = QTableWidget(0, 3)
         self.rec_table.setHorizontalHeaderLabels(['Дата', 'Тренер', 'Рекомендация'])
+        self._configure_table(self.rec_table)
         v.addWidget(self.rec_table)
 
         return w
@@ -202,6 +230,7 @@ class ClientWindow(QWidget):
         self.anthro_table.setHorizontalHeaderLabels([
             'Дата', 'Вес', 'Рост', '% жира', 'Примечание'
         ])
+        self._configure_table(self.anthro_table)
         QVBoxLayout(w).addWidget(self.anthro_table)
         return w
 
@@ -212,11 +241,15 @@ class ClientWindow(QWidget):
         self.notif_table = QTableWidget(0, 3)
         self.notif_table.setHorizontalHeaderLabels(['ID', 'Сообщение', 'Дата'])
         self.notif_table.setColumnHidden(0, True)
+        self._configure_table(self.notif_table)
         v.addWidget(self.notif_table)
 
+        actions = QHBoxLayout()
+        actions.addStretch()
         b = QPushButton("Отметить прочитанным")
         b.clicked.connect(self.mark_notif_read)
-        v.addWidget(b)
+        actions.addWidget(b)
+        v.addLayout(actions)
         return w
 
 
