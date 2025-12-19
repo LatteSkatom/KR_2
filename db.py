@@ -103,6 +103,22 @@ def get_schedule():
     conn.close()
     return rows
 
+
+def add_group_class(className, trainerID, classDate, startTime, endTime, hall, maxParticipants):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO GroupClasses (className, trainerID, classDate, startTime, endTime, hall, maxParticipants)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+        """,
+        (className, trainerID, classDate, startTime, endTime, hall, maxParticipants),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return new_id
+
 def get_enrollments_for_client(client_id):
     conn = get_connection()
     cur = conn.cursor(mdb.cursors.DictCursor)
@@ -488,6 +504,22 @@ def get_complaints(status=None):
             ORDER BY c.createdAt DESC
             """
         )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def get_trainers():
+    conn = get_connection()
+    cur = conn.cursor(MySQLdb.cursors.DictCursor)
+    cur.execute(
+        f"""
+        SELECT u.userID, {_fio_alias('u')} AS fio
+        FROM Users u
+        WHERE u.userType='Тренер'
+        ORDER BY {_fio_order_clause('u')}
+        """,
+    )
     rows = cur.fetchall()
     conn.close()
     return rows

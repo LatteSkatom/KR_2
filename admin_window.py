@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox, QDateEdit, QSpinBox, QTextEdit, QComboBox, QFileDialog, QTabWidget
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem, QLineEdit, QFormLayout, QMessageBox, QDateEdit, QSpinBox, QTextEdit, QComboBox, QFileDialog, QTabWidget, QTimeEdit
 from PyQt6.QtWidgets import QInputDialog
 from PyQt6.QtCore import QDate
 import datetime
@@ -6,6 +6,7 @@ import MySQLdb.cursors
 
 from db import register_client, get_clients, create_membership, extend_membership, block_membership
 from db import add_complaint, get_complaints, update_complaint_status, add_promotion, get_promotions, set_promotion_active, sales_report_by_month
+from db import get_trainers, add_group_class, get_schedule
 
 class AdminWindow(QWidget):
     def __init__(self, user):
@@ -110,12 +111,50 @@ class AdminWindow(QWidget):
         promos_tab.setLayout(promos_layout)
         tabs.addTab(promos_tab, "Акции")
 
+        schedule_tab = QWidget()
+        schedule_layout = QVBoxLayout()
+        schedule_layout.addWidget(QLabel("<h3>Расписание тренировок</h3>"))
+
+        form = QFormLayout()
+        self.class_name = QLineEdit(); form.addRow("Название занятия:", self.class_name)
+
+        self.trainer_combo = QComboBox(); form.addRow("Тренер:", self.trainer_combo)
+
+        self.class_date = QDateEdit(); self.class_date.setDate(QDate.currentDate()); form.addRow("Дата:", self.class_date)
+
+        self.start_time = QTimeEdit(); form.addRow("Начало:", self.start_time)
+        self.end_time = QTimeEdit(); form.addRow("Конец:", self.end_time)
+
+        self.hall_edit = QLineEdit(); form.addRow("Зал:", self.hall_edit)
+
+        self.max_participants = QSpinBox(); self.max_participants.setRange(1, 200); self.max_participants.setValue(20)
+        form.addRow("Макс. участников:", self.max_participants)
+
+        self.btn_add_class = QPushButton("Добавить в расписание")
+        self.btn_add_class.clicked.connect(self.add_class_to_schedule)
+        form.addRow(self.btn_add_class)
+
+        schedule_layout.addLayout(form)
+
+        self.schedule_table = QTableWidget(0, 7)
+        self.schedule_table.setHorizontalHeaderLabels(['ID', 'Название', 'Тренер', 'Дата', 'Начало', 'Конец', 'Зал'])
+        schedule_layout.addWidget(self.schedule_table)
+
+        btn_refresh_schedule = QPushButton("Обновить расписание")
+        btn_refresh_schedule.clicked.connect(self.load_schedule)
+        schedule_layout.addWidget(btn_refresh_schedule)
+
+        schedule_tab.setLayout(schedule_layout)
+        tabs.addTab(schedule_tab, "Расписание")
+
         layout.addWidget(tabs)
         self.setLayout(layout)
 
         self.load_clients()
         self.load_complaints()
         self.load_promos()
+        self.load_trainers()
+        self.load_schedule()
 
     def load_clients(self):
         rows = get_clients(1000)
@@ -259,6 +298,36 @@ class AdminWindow(QWidget):
         set_promotion_active(pid, 0 if current=='Да' else 1)
         QMessageBox.information(self, "Готово", "Состояние акции изменено")
         self.load_promos()
+
+    def load_trainers(self):
+        self.trainer_combo.clear()
+        for t in get_trainers():
+            self.trainer_combo.addItem(f"{t['fio']} (id:{t['userID']})", t['userID'])
+
+    def load_schedule(self):
+        self.schedule_table.setRowCount(0)
+        for r in get_schedule():
+            row = self.schedule_table.rowCount()
+            self.schedule_table.insertRow(row)
+            for i, k in enumerate(['classID','className','trainerName','classDate','startTime','endTime','hall']):
+                self.schedule_table.setItem(row, i, QTableWidgetItem(str(r.get(k,''))))
+
+    def add_class_to_schedule(self):
+        name = self.class_name.text().strip()
+        trainer_id = self.trainer_combo.currentData()
+        date = self.class_date.date().toString("yyyy-MM-dd")
+        start = self.start_time.time().toString("HH:mm:ss")
+        end = self.end_time.time().toString("HH:mm:ss")
+        hall = self.hall_edit.text().strip()
+        maxp = self.max_participants.value()
+
+        if not name or trainer_id is None:
+            QMessageBox.warning(self, "Ошибка", "Введите название и выберите тренера")
+            return
+
+        add_group_class(name, trainer_id, date, start, end, hall, maxp)
+        QMessageBox.information(self, "Готово", "Занятие добавлено в расписание")
+        self.load_schedule()
 
     def print_card(self):
         sel = self.clients_table.currentRow()
