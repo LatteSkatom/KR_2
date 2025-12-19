@@ -20,6 +20,7 @@ class TrainerWindow(QWidget):
         schedule_layout.addWidget(QLabel("<b>Моё расписание</b>"))
         self.schedule_table = QTableWidget(0,6)
         self.schedule_table.setHorizontalHeaderLabels(['ID','Занятие','Дата','Начало','Конец','Зал'])
+        self.schedule_table.itemSelectionChanged.connect(self.on_schedule_selection_changed)
         schedule_layout.addWidget(self.schedule_table)
 
         btns = QHBoxLayout()
@@ -114,9 +115,17 @@ class TrainerWindow(QWidget):
             self.schedule_table.setItem(row,5, QTableWidgetItem(r.get('hall') or ''))
 
     def show_enrolled_for_selected(self):
+        self.load_enrolled_for_selected(show_warning=True)
+
+    def on_schedule_selection_changed(self):
+        self.load_enrolled_for_selected(show_warning=False)
+
+    def load_enrolled_for_selected(self, show_warning=False):
         sel = self.schedule_table.currentRow()
         if sel < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите занятие")
+            self.enrolled_table.setRowCount(0)
+            if show_warning:
+                QMessageBox.warning(self, "Ошибка", "Выберите занятие")
             return
         class_id = int(self.schedule_table.item(sel,0).text())
         rows = get_enrolled_for_class(class_id)
@@ -142,7 +151,7 @@ class TrainerWindow(QWidget):
         client_id = int(self.enrolled_table.item(sel,1).text())
         mark_attendance(class_id, client_id, True)
         QMessageBox.information(self, "Готово", "Отмечено как присутствовавший")
-        self.show_enrolled_for_selected()
+        self.load_enrolled_for_selected()
 
     def add_journal_entry(self):
         client_id = self.client_combo.currentData()
