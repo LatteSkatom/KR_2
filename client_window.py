@@ -4,7 +4,7 @@ faulthandler.enable()
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
     QTableWidget, QTableWidgetItem, QTabWidget, QMessageBox,
-    QFormLayout, QTextEdit, QComboBox, QDateEdit, QTimeEdit,
+    QFormLayout, QTextEdit, QComboBox, QDateEdit,
     QGroupBox, QHeaderView
 )
 from PyQt6.QtCore import QDate
@@ -25,6 +25,7 @@ from db import (
     get_connection,
     get_training_journal_for_client,
     get_recommendations_for_client,
+    get_available_personal_training_times,
 )
 
 
@@ -170,26 +171,29 @@ class ClientWindow(QWidget):
         f = QFormLayout(group)
 
         self.trainer_combo = QComboBox()
+        self.trainer_combo.currentIndexChanged.connect(self.refresh_personal_training_times)
         f.addRow("Тренер:", self.trainer_combo)
 
         self.pt_date = QDateEdit(QDate.currentDate())
         self.pt_date.setCalendarPopup(True)
+        self.pt_date.dateChanged.connect(self.refresh_personal_training_times)
         f.addRow("Дата:", self.pt_date)
 
-        self.pt_start = QTimeEdit()
-        f.addRow("Начало:", self.pt_start)
+        self.pt_start_combo = QComboBox()
+        f.addRow("Начало:", self.pt_start_combo)
 
         self.pt_notes = QTextEdit()
         self.pt_notes.setPlaceholderText("Пожелания к тренировке")
         f.addRow("Примечание:", self.pt_notes)
 
-        b = QPushButton("Забронировать")
-        b.clicked.connect(self.book_pt)
-        f.addRow(b)
+        self.pt_book_btn = QPushButton("Забронировать")
+        self.pt_book_btn.clicked.connect(self.book_pt)
+        f.addRow(self.pt_book_btn)
 
         v.addWidget(group)
         v.addStretch()
         self.refresh_trainers()
+        self.refresh_personal_training_times()
         return w
 
     def build_visits_tab(self):
@@ -320,11 +324,38 @@ class ClientWindow(QWidget):
         for r in cur.fetchall():
             self.trainer_combo.addItem(r['fio'], r['userID'])
         conn.close()
+        self.refresh_personal_training_times()
+
+    def refresh_personal_training_times(self):
+        trainer_id = self.trainer_combo.currentData()
+        if not trainer_id:
+            self.pt_start_combo.clear()
+            self.pt_start_combo.addItem("Нет доступного времени", None)
+            self.pt_book_btn.setEnabled(False)
+            return
+        date_str = self.pt_date.date().toString("yyyy-MM-dd")
+        times = get_available_personal_training_times(trainer_id, date_str)
+        self.pt_start_combo.clear()
+        if not times:
+            self.pt_start_combo.addItem("Нет доступного времени", None)
+            self.pt_book_btn.setEnabled(False)
+            return
+        for t in times:
+            self.pt_start_combo.addItem(t, t)
+        self.pt_book_btn.setEnabled(True)
 
     def book_pt(self):
         trainer_id = self.trainer_combo.currentData()
-        start = self.pt_start.time()
-        end = start.addSecs(3600)
+        if not trainer_id:
+            QMessageBox.warning(self, "Ошибка", "Выберите тренера")
+            return
+        start_value = self.pt_start_combo.currentData()
+        if not start_value:
+            QMessageBox.warning(self, "Ошибка", "Нет доступного времени для записи")
+            return
+
+        start_dt = datetime.datetime.strptime(start_value, "%H:%M")
+        end_dt = start_dt + datetime.timedelta(hours=1)
 
         date_str = self.pt_date.date().toString("yyyy-MM-dd")
         if not self.membership_allows_date(date_str):
@@ -334,14 +365,15 @@ class ClientWindow(QWidget):
             self.client_id,
             trainer_id,
             date_str,
-            start.toString("HH:mm:ss"),
-            end.toString("HH:mm:ss"),
+            start_dt.strftime("%H:%M:%S"),
+            end_dt.strftime("%H:%M:%S"),
             self.pt_notes.toPlainText()
         )
 
         if ok:
             QMessageBox.information(self, "OK", "Тренировка забронирована")
             self.refresh_my_enrollments()
+            self.refresh_personal_training_times()
         else:
             QMessageBox.warning(self, "Ошибка", "В это время тренировка невозможна")
 

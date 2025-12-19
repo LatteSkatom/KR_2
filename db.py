@@ -294,6 +294,57 @@ def _trainer_is_blocked(trainer_id, date, start_time, end_time):
         conn.close()
 
 
+def get_available_personal_training_times(trainer_id, date, slot_minutes=60):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT startTime, endTime
+        FROM GroupClasses
+        WHERE trainerID=%s AND classDate=%s
+        """,
+        (trainer_id, date),
+    )
+    busy = list(cur.fetchall())
+    cur.execute(
+        """
+        SELECT startTime, endTime
+        FROM PersonalTraining
+        WHERE trainerID=%s AND trainingDate=%s
+        """,
+        (trainer_id, date),
+    )
+    busy.extend(cur.fetchall())
+    cur.execute(
+        """
+        SELECT startTime, endTime
+        FROM TrainerBlockedTime
+        WHERE trainerID=%s AND blockDate=%s
+        """,
+        (trainer_id, date),
+    )
+    busy.extend(cur.fetchall())
+    conn.close()
+
+    def to_minutes(value):
+        if isinstance(value, datetime.time):
+            return value.hour * 60 + value.minute
+        parsed = datetime.datetime.strptime(str(value), "%H:%M:%S").time()
+        return parsed.hour * 60 + parsed.minute
+
+    busy_ranges = [(to_minutes(start), to_minutes(end)) for start, end in busy]
+
+    day_start = 8 * 60
+    day_end = 21 * 60
+    available = []
+    for start in range(day_start, day_end, slot_minutes):
+        end = start + slot_minutes
+        overlaps = any(not (end <= b_start or start >= b_end) for b_start, b_end in busy_ranges)
+        if not overlaps:
+            available.append(f"{start // 60:02d}:{start % 60:02d}")
+    return available
+
+
 def book_personal_training(client_id, trainer_id, date, start_time, end_time, notes):
     conn = get_connection()
     try:
@@ -858,5 +909,4 @@ def fire_staff(user_id):
     affected = cur.rowcount
     conn.close()
     return affected > 0
-
 
