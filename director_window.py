@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QComboBox,
     QDialogButtonBox,
+    QHeaderView,
 )
 
 from db import (
@@ -41,8 +42,8 @@ class DirectorWindow(QWidget):
         self.resize(1100, 720)
 
         root = QVBoxLayout()
-        root.addWidget(QLabel("<h2>Панель директора</h2>"))
-
+        root.setSpacing(12)
+        root.addWidget(QLabel("Панель директора"))
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_general_tab(), "Статистика")
@@ -61,6 +62,16 @@ class DirectorWindow(QWidget):
         self._load_prices()
         self._load_staff()
 
+    def _configure_table(self, table, stretch_last=True):
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setAlternatingRowColors(True)
+        table.verticalHeader().setVisible(False)
+        header = table.horizontalHeader()
+        header.setStretchLastSection(stretch_last)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
     # ------------------------------
     # Построение вкладок
     # ------------------------------
@@ -71,6 +82,7 @@ class DirectorWindow(QWidget):
 
         self.general_table = QTableWidget(0, 2)
         self.general_table.setHorizontalHeaderLabels(["Показатель", "Значение"])
+        self._configure_table(self.general_table)
         layout.addWidget(self.general_table)
         return widget
 
@@ -83,6 +95,7 @@ class DirectorWindow(QWidget):
         self.trainer_table.setHorizontalHeaderLabels(
             ["Тренер", "Продажи", "Посещаемость", "KPI", "Клиенты"]
         )
+        self._configure_table(self.trainer_table)
         layout.addWidget(self.trainer_table)
         return widget
 
@@ -98,6 +111,7 @@ class DirectorWindow(QWidget):
             "Расходы",
             "Прибыль",
         ])
+        self._configure_table(self.finance_table)
         layout.addWidget(self.finance_table)
         return widget
 
@@ -108,6 +122,7 @@ class DirectorWindow(QWidget):
 
         self.price_table = QTableWidget(0, 2)
         self.price_table.setHorizontalHeaderLabels(["Тип абонемента", "Цена"])
+        self._configure_table(self.price_table)
         layout.addWidget(self.price_table)
 
         buttons = QHBoxLayout()
@@ -146,6 +161,7 @@ class DirectorWindow(QWidget):
             ["ID", "Фамилия", "Имя", "Отчество", "Роль", "Телефон"]
         )
         self.staff_table.setColumnHidden(0, True)
+        self._configure_table(self.staff_table)
         layout.addWidget(self.staff_table)
 
         buttons = QHBoxLayout()
