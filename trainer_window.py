@@ -28,10 +28,6 @@ class TrainerWindow(QWidget):
         self.btn_load_schedule = QPushButton("Загрузить расписание")
         self.btn_load_schedule.clicked.connect(self.load_schedule)
         btns.addWidget(self.btn_load_schedule)
-
-        self.btn_view_enrolled = QPushButton("Показать записавшихся")
-        self.btn_view_enrolled.clicked.connect(self.show_enrolled_for_selected)
-        btns.addWidget(self.btn_view_enrolled)
         btns.addStretch()
         schedule_layout.addLayout(btns)
 
@@ -111,6 +107,7 @@ class TrainerWindow(QWidget):
 
         layout.addWidget(tabs)
         self.setLayout(layout)
+        self.schedule_table.itemSelectionChanged.connect(self.show_enrolled_for_selected)
         self.load_schedule()
 
     def _configure_table(self, table):
@@ -135,11 +132,15 @@ class TrainerWindow(QWidget):
             self.schedule_table.setItem(row,3, QTableWidgetItem(str(r.get('startTime'))))
             self.schedule_table.setItem(row,4, QTableWidgetItem(str(r.get('endTime'))))
             self.schedule_table.setItem(row,5, QTableWidgetItem(r.get('hall') or ''))
+        if self.schedule_table.rowCount() > 0:
+            self.schedule_table.selectRow(0)
+        else:
+            self.enrolled_table.setRowCount(0)
 
     def show_enrolled_for_selected(self):
         sel = self.schedule_table.currentRow()
         if sel < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите занятие")
+            self.enrolled_table.setRowCount(0)
             return
         class_id = int(self.schedule_table.item(sel,0).text())
         rows = get_enrolled_for_class(class_id)
