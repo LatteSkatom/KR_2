@@ -323,6 +323,69 @@ def book_personal_training(client_id, trainer_id, date, start_time, end_time, no
         conn.close()
 
 
+def get_available_personal_training_times(trainer_id, date, slot_minutes=60):
+    start_hour = 8
+    end_hour = 20
+    slot_delta = datetime.timedelta(minutes=slot_minutes)
+    if isinstance(date, datetime.date):
+        target_date = date
+    else:
+        target_date = datetime.date.fromisoformat(str(date))
+    day_start = datetime.datetime.combine(
+        target_date,
+        datetime.time(hour=start_hour),
+    )
+    day_end = datetime.datetime.combine(
+        target_date,
+        datetime.time(hour=end_hour),
+    )
+
+    conn = get_connection()
+    cur = conn.cursor(mdb.cursors.DictCursor)
+    cur.execute(
+        """
+        SELECT startTime, endTime
+        FROM PersonalTraining
+        WHERE trainerID=%s AND trainingDate=%s
+        """,
+        (trainer_id, date),
+    )
+    pt_rows = cur.fetchall()
+    cur.execute(
+        """
+        SELECT startTime, endTime
+        FROM TrainerBlockedTime
+        WHERE trainerID=%s AND blockDate=%s
+        """,
+        (trainer_id, date),
+    )
+    blocked_rows = cur.fetchall()
+    conn.close()
+
+    busy = []
+    for row in pt_rows + blocked_rows:
+        start = row.get("startTime")
+        end = row.get("endTime")
+        if start and end:
+            busy.append((start, end))
+
+    times = []
+    current = day_start
+    while current + slot_delta <= day_end:
+        start_time = current.time()
+        end_time = (current + slot_delta).time()
+        overlaps = False
+        for busy_start, busy_end in busy:
+            if not (end_time <= busy_start or start_time >= busy_end):
+                overlaps = True
+                break
+        if not overlaps:
+            times.append(start_time.strftime("%H:%M:%S"))
+        current += slot_delta
+
+    return times
+
+
 
 def cancel_personal_training(training_id):
     conn = get_connection()
@@ -826,5 +889,3 @@ def fire_staff(user_id):
     affected = cur.rowcount
     conn.close()
     return affected > 0
-
-

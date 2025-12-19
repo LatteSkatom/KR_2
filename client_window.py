@@ -4,9 +4,9 @@ faulthandler.enable()
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton,
     QTableWidget, QTableWidgetItem, QTabWidget, QMessageBox,
-    QFormLayout, QTextEdit, QComboBox, QDateEdit, QTimeEdit
+    QFormLayout, QTextEdit, QComboBox, QDateEdit
 )
-from PyQt6.QtCore import QDate
+from PyQt6.QtCore import QDate, QTime
 import datetime
 
 from db import (
@@ -24,6 +24,7 @@ from db import (
     get_connection,
     get_training_journal_for_client,
     get_recommendations_for_client,
+    get_available_personal_training_times,
 )
 
 
@@ -154,8 +155,8 @@ class ClientWindow(QWidget):
         self.pt_date = QDateEdit(QDate.currentDate())
         f.addRow("Дата:", self.pt_date)
 
-        self.pt_start = QTimeEdit()
-        f.addRow("Начало:", self.pt_start)
+        self.pt_start_combo = QComboBox()
+        f.addRow("Начало:", self.pt_start_combo)
 
         self.pt_notes = QTextEdit()
         f.addRow("Примечание:", self.pt_notes)
@@ -165,6 +166,8 @@ class ClientWindow(QWidget):
         f.addRow(b)
 
         self.refresh_trainers()
+        self.trainer_combo.currentIndexChanged.connect(self.refresh_personal_time_options)
+        self.pt_date.dateChanged.connect(self.refresh_personal_time_options)
         return w
 
     def build_visits_tab(self):
@@ -287,10 +290,15 @@ class ClientWindow(QWidget):
         for r in cur.fetchall():
             self.trainer_combo.addItem(r['fio'], r['userID'])
         conn.close()
+        self.refresh_personal_time_options()
 
     def book_pt(self):
         trainer_id = self.trainer_combo.currentData()
-        start = self.pt_start.time()
+        start_value = self.pt_start_combo.currentData()
+        if not start_value:
+            QMessageBox.warning(self, "Ошибка", "Нет доступного времени для записи")
+            return
+        start = QTime.fromString(start_value, "HH:mm:ss")
         end = start.addSecs(3600)
 
         date_str = self.pt_date.date().toString("yyyy-MM-dd")
@@ -311,6 +319,21 @@ class ClientWindow(QWidget):
             self.refresh_my_enrollments()
         else:
             QMessageBox.warning(self, "Ошибка", "В это время тренировка невозможна")
+
+    def refresh_personal_time_options(self):
+        trainer_id = self.trainer_combo.currentData()
+        if not trainer_id:
+            return
+        date_str = self.pt_date.date().toString("yyyy-MM-dd")
+        times = get_available_personal_training_times(trainer_id, date_str)
+        self.pt_start_combo.clear()
+        if times:
+            for t in times:
+                self.pt_start_combo.addItem(t, t)
+            self.pt_start_combo.setEnabled(True)
+        else:
+            self.pt_start_combo.addItem("Нет доступного времени", None)
+            self.pt_start_combo.setEnabled(False)
 
     def refresh_membership(self):
         m = get_membership_for_client(self.client_id)
